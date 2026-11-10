@@ -1,0 +1,59 @@
+@import 'tailwindcss';
+
+/*
+ * Design tokens from DESIGN.md. Tailwind 4 keeps theme values here instead of
+ * tailwind.config. The `initial` lines remove Tailwind's default palette,
+ * fonts, radii and shadows, so only these named tokens exist as classes.
+ */
+@theme {
+  --color-*: initial;
+  --color-bg: #f4f6f7;
+  --color-surface: #ffffff;
+  --color-surface-alt: #ebeef0;
+  --color-border: #dce1e4;
+  --color-text: #15202b;
+  --color-text-muted: #5b6770;
+  --color-accent: #155ea6;
+  --color-accent-pressed: #0f4c87;
+  --color-accent-tint: #e3eef8;
+  --color-success: #2e7d4f;
+  --color-danger: #b93a32;
+  --color-warning: #b7791f;
+
+  --font-*: initial;
+  --font-sans: 'Source Sans 3', sans-serif;
+  --font-heading: 'Archivo', sans-serif;
+
+  --radius-*: initial;
+  --radius-control: 6px;
+  --radius-card: 8px;
+
+  --shadow-*: initial;
+  --shadow-sheet: 0 8px 24px rgb(21 32 43 / 0.12);
+}
+
+@layer base {
+  html {
+    color-scheme: light;
+  }
+
+  body {
+    background-color: var(--color-bg);
+    color: var(--color-text);
+    font-family: var(--font-sans);
+    font-size: 1rem;
+    line-height: 1.5;
+  }
+
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-heading);
+    font-weight: 700;
+  }
+}
+
+/* Money columns line up: use on any amount. */
+@utility money {
+  font-variant-numeric: tabular-nums;
+}

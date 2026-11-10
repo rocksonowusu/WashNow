@@ -1,0 +1,23 @@
+# Dependencies
+vendor/
+node_modules/
+
+# Environment files (keep the .env.example files)
+.env
+.env.*
+!.env.example
+
+# Build output
+dist/
+dev-dist/
+
+# Local databases, logs and OS/editor files
+*.sqlite
+*.log
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Original starter archive
+washnow-starter.zip
