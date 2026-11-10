@@ -2,9 +2,9 @@
 
 namespace App\Services;
 
+use App\Exceptions\DayClosedException;
 use App\Models\DayClosing;
 use Carbon\CarbonInterface;
-use Illuminate\Validation\ValidationException;
 
 /**
  * Once the owner closes a day, nothing dated inside it may be added or changed.
@@ -20,12 +20,12 @@ final class DayLock
     }
 
     /**
-     * @throws ValidationException
+     * @throws DayClosedException
      */
     public static function ensureOpen(string $branchId, CarbonInterface|string $date, string $field): void
     {
         if (self::isClosed($branchId, $date)) {
-            throw ValidationException::withMessages([
+            throw DayClosedException::withMessages([
                 $field => [self::dateString($date).' has been closed, so its records can no longer be changed.'],
             ]);
         }

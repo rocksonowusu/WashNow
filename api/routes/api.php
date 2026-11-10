@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\CustomerController;
 use App\Http\Controllers\Api\DayClosingController;
 use App\Http\Controllers\Api\ExpenseController;
 use App\Http\Controllers\Api\SaleController;
+use App\Http\Controllers\Api\SyncController;
 use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\VehicleCategoryController;
 use App\Http\Controllers\Api\WasherController;
@@ -42,6 +43,10 @@ Route::middleware(['auth:sanctum', 'role:owner,cashier'])->group(function () {
     Route::get('/expenses', [ExpenseController::class, 'index']);
     Route::post('/expenses', [ExpenseController::class, 'store']);
 
+    // Offline devices: send the outbox, then fetch what changed.
+    Route::post('/sync/push', [SyncController::class, 'push']);
+    Route::get('/sync/pull', [SyncController::class, 'pull']);
+
     // Owner only: settings, corrections, money totals and history.
     Route::middleware('role:owner')->group(function () {
         Route::post('/categories', [VehicleCategoryController::class, 'store']);
@@ -54,6 +59,7 @@ Route::middleware(['auth:sanctum', 'role:owner,cashier'])->group(function () {
 
         Route::delete('/customers/{id}', [CustomerController::class, 'destroy']);
 
+        Route::put('/sales/{id}', [SaleController::class, 'update']);
         Route::post('/sales/{id}/void', [SaleController::class, 'void']);
 
         Route::put('/expenses/{id}', [ExpenseController::class, 'update']);

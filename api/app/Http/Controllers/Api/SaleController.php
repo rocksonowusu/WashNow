@@ -10,11 +10,10 @@ use App\Services\SaleService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
-use Illuminate\Validation\Rule;
 
 /**
- * Sales are recorded and voided, never edited away or deleted, so there is no
- * update or destroy here.
+ * Sales are recorded, corrected by the owner, and voided. They are never
+ * deleted, so there is no destroy here.
  */
 class SaleController extends Controller
 {
@@ -59,30 +58,26 @@ class SaleController extends Controller
         return response()->json(['data' => $this->find($request, $id)->load('saleWashers')]);
     }
 
-    /**
-     * amount is whole pesewas: GH₵35.00 is sent as 3500.
-     */
     public function store(Request $request): JsonResponse
     {
-        $data = $request->validate([
-            'id' => ['sometimes', 'uuid', 'unique:sales,id'],
-            'category_id' => ['required', 'uuid'],
-            'customer_id' => ['nullable', 'uuid'],
-            'plate_number' => ['nullable', 'string', 'max:20'],
-            'service_note' => ['nullable', 'string', 'max:255'],
-            'amount' => ['required', 'integer', 'min:1', 'max:100000000'],
-            'payment_method' => ['required', Rule::enum(PaymentMethod::class)],
-            'washer_ids' => ['required', 'array', 'min:1', 'max:6'],
-            'washer_ids.*' => ['uuid', 'distinct'],
-            'sold_at' => ['nullable', 'date'],
-            'override_reason' => ['nullable', 'string', 'max:255'],
-        ], [
-            'washer_ids.required' => 'Choose at least one washer.',
-        ]);
+        $data = $request->validate(
+            ['id' => ['sometimes', 'uuid', 'unique:sales,id']] + SaleService::rules(),
+            ['washer_ids.required' => 'Choose at least one washer.'],
+        );
 
-        $sale = $this->sales->create($request->user(), $data);
+        return response()->json(['data' => $this->sales->create($request->user(), $data)], 201);
+    }
 
-        return response()->json(['data' => $sale], 201);
+    /**
+     * Owner only: correct the amount, payment method, note or plate.
+     */
+    public function update(Request $request, string $id): JsonResponse
+    {
+        $data = $request->validate(SaleService::rules(creating: false));
+
+        $sale = $this->sales->update($request->user(), $this->find($request, $id), $data);
+
+        return response()->json(['data' => $sale]);
     }
 
     public function void(Request $request, string $id): JsonResponse
@@ -91,9 +86,7 @@ class SaleController extends Controller
             'reason' => ['required', 'string', 'min:3', 'max:255'],
         ]);
 
-        $sale = $this->sales->void($this->find($request, $id), $data['reason']);
-
-        return response()->json(['data' => $sale]);
+        return response()->json(['data' => $this->sales->void($this->find($request, $id), $data['reason'])]);
     }
 
     private function find(Request $request, string $id): Sale

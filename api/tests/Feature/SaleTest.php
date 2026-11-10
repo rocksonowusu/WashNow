@@ -208,14 +208,83 @@ it('shows a cashier only today, and lets the owner pick a date', function () {
         ->assertJsonPath('totals.total', 2000);
 });
 
-it('has no way to edit or delete a sale', function () {
+it('has no way to delete a sale', function () {
     $bay = bay();
     $saleId = recordSale($bay, $bay->owner)->json('data.id');
 
     $this->deleteJson("/api/sales/{$saleId}")->assertStatus(405);
-    $this->putJson("/api/sales/{$saleId}", ['amount' => 1])->assertStatus(405);
 
     expect(Sale::query()->find($saleId))->not->toBeNull();
+});
+
+describe('owner corrections', function () {
+    it('does not let a cashier change a recorded sale', function () {
+        $bay = bay();
+        $saleId = recordSale($bay, $bay->cashier, ['amount' => 5000])->json('data.id');
+
+        $this->putJson("/api/sales/{$saleId}", ['amount' => 6000])->assertForbidden();
+
+        expect(Sale::query()->find($saleId)->amount)->toBe(5000);
+    });
+
+    it('lets the owner correct the amount and works the commission out again', function () {
+        $bay = bay();
+        $saleId = recordSale($bay, $bay->cashier, [
+            'amount' => 10000,
+            'washer_ids' => [$bay->kofi->id, $bay->ama->id],
+        ])->json('data.id');
+
+        // Kofi's rate changes afterwards; the sale keeps the 30% it was recorded with.
+        $bay->kofi->update(['commission_percent' => 50]);
+
+        Sanctum::actingAs($bay->owner);
+        $response = $this->putJson("/api/sales/{$saleId}", ['amount' => 8000, 'payment_method' => 'momo'])
+            ->assertOk()
+            ->assertJsonPath('data.amount', 8000)
+            ->assertJsonPath('data.payment_method', 'momo')
+            ->assertJsonPath('data.version', 2);
+
+        $rows = collect($response->json('data.sale_washers'))->keyBy('washer_id');
+
+        expect($rows[$bay->kofi->id]['commission_amount'])->toBe(1200) // 30% of GH₵40
+            ->and($rows[$bay->kofi->id]['commission_percent'])->toBe('30.00')
+            ->and($rows[$bay->ama->id]['commission_amount'])->toBe(1600); // 40% of GH₵40
+    });
+
+    it('still needs a reason when a correction goes outside the range', function () {
+        $bay = bay();
+        $saleId = recordSale($bay, $bay->cashier, ['amount' => 5000])->json('data.id');
+
+        Sanctum::actingAs($bay->owner);
+        $this->putJson("/api/sales/{$saleId}", ['amount' => 12000])
+            ->assertUnprocessable()->assertJsonValidationErrors('override_reason');
+
+        $this->putJson("/api/sales/{$saleId}", ['amount' => 12000, 'override_reason' => 'Full detail'])
+            ->assertOk()->assertJsonPath('data.override_reason', 'Full detail');
+    });
+
+    it('moves a customer\'s totals when the plate is corrected', function () {
+        $bay = bay();
+        $wrong = Customer::factory()->for($bay->branch)->create(['plate_number' => 'GR111121']);
+        $right = Customer::factory()->for($bay->branch)->create(['plate_number' => 'GR222221']);
+        $saleId = recordSale($bay, $bay->cashier, ['amount' => 5000, 'plate_number' => 'GR111121'])->json('data.id');
+
+        Sanctum::actingAs($bay->owner);
+        $this->putJson("/api/sales/{$saleId}", ['plate_number' => 'GR-2222-21'])
+            ->assertOk()->assertJsonPath('data.customer_id', $right->id);
+
+        expect($wrong->fresh()->visit_count)->toBe(0)
+            ->and($right->fresh()->visit_count)->toBe(1)
+            ->and($right->fresh()->total_spent)->toBe(5000);
+    });
+
+    it('cannot change a voided sale', function () {
+        $bay = bay();
+        $saleId = recordSale($bay, $bay->owner)->json('data.id');
+        $this->postJson("/api/sales/{$saleId}/void", ['reason' => 'Entered twice'])->assertOk();
+
+        $this->putJson("/api/sales/{$saleId}", ['amount' => 6000])->assertUnprocessable();
+    });
 });
 
 describe('voiding', function () {

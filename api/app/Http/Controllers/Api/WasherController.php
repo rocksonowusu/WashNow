@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Washer;
+use App\Support\SettingRules;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -21,7 +22,7 @@ class WasherController extends Controller
 
     public function store(Request $request): JsonResponse
     {
-        $data = $request->validate($this->rules(required: true));
+        $data = SettingRules::washer($request->all(), creating: true);
 
         $washer = Washer::query()->create(['branch_id' => $request->user()->branch_id] + $data);
 
@@ -37,7 +38,7 @@ class WasherController extends Controller
     {
         $washer = $this->find($request, $id);
 
-        $washer->update($request->validate($this->rules(required: false)));
+        $washer->update(SettingRules::washer($request->all(), creating: false));
 
         return response()->json(['data' => $washer]);
     }
@@ -54,20 +55,5 @@ class WasherController extends Controller
         return Washer::query()
             ->where('branch_id', $request->user()->branch_id)
             ->findOrFail($id);
-    }
-
-    /**
-     * @return array<string, list<string>>
-     */
-    private function rules(bool $required): array
-    {
-        $presence = $required ? 'required' : 'sometimes';
-
-        return [
-            'name' => [$presence, 'string', 'max:100'],
-            'phone' => ['nullable', 'string', 'max:20'],
-            'commission_percent' => [$presence, 'numeric', 'min:0', 'max:100', 'decimal:0,2'],
-            'active' => ['sometimes', 'boolean'],
-        ];
     }
 }
