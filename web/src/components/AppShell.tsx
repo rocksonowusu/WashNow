@@ -1,6 +1,7 @@
 import { CirclePlus, ClipboardList, LayoutDashboard, Lock, RefreshCw, UsersRound, type LucideIcon } from 'lucide-react'
 import { NavLink, Outlet, useLocation } from 'react-router'
 import { useAuth } from '../auth/AuthContext.tsx'
+import CornerArt from './CornerArt.tsx'
 import SyncBadge from './SyncBadge.tsx'
 import { ICON } from './icon.ts'
 
@@ -32,13 +33,16 @@ export default function AppShell() {
 
   return (
     <div className="min-h-screen lg:grid lg:grid-cols-[16rem_minmax(0,1fr)]">
-      <aside className="stripes-on-blue hidden bg-accent text-surface lg:sticky lg:top-0 lg:flex lg:h-screen lg:flex-col">
-        <div className="px-5 py-5">
+      <aside className="hidden overflow-hidden bg-accent text-surface lg:sticky lg:top-0 lg:flex lg:h-screen lg:flex-col">
+        <CornerArt kind="rings" corner="top-right" size={260} tone="text-surface/10" />
+        <CornerArt kind="lines" corner="bottom-left" size={340} tone="text-surface/10" />
+
+        <div className="relative px-5 py-5">
           <img src="/brand/washnow-logo-white.svg" alt="WashNow" className="h-10 w-auto" />
           <span aria-hidden="true" className="mt-3 block h-1 w-12 rounded-control bg-sun" />
         </div>
 
-        <nav aria-label="Main" className="flex-1 space-y-1 overflow-y-auto px-3 py-2">
+        <nav aria-label="Main" className="relative flex-1 space-y-1 overflow-y-auto px-3 py-2">
           {DESTINATIONS.map(({ to, label, icon: Icon }) => (
             <NavLink
               key={to}
@@ -56,7 +60,7 @@ export default function AppShell() {
           ))}
         </nav>
 
-        <div className="bg-accent-pressed px-5 py-4">
+        <div className="relative bg-accent-pressed px-5 py-4">
           <p className="truncate font-semibold">{account?.name}</p>
           <p className="truncate text-sm text-surface/85">
             <span className="capitalize">{account?.role}</span>
@@ -73,8 +77,12 @@ export default function AppShell() {
         </div>
       </aside>
 
-      <div className="min-w-0">
-        <header className="stripes-on-blue sticky top-0 z-10 bg-accent lg:border-b lg:border-border lg:bg-surface">
+      {/* overflow-clip (not hidden) trims the corner art without stopping the header from sticking. */}
+      <div className="relative min-w-0 overflow-clip">
+        <CornerArt kind="rings" corner="top-right" size={480} tone="text-accent/5" />
+        <CornerArt kind="lines" corner="bottom-left" size={360} tone="text-accent/5" />
+
+        <header className="sticky top-0 z-10 bg-accent lg:border-b lg:border-border lg:bg-surface">
           <div className="flex min-h-14 items-center justify-between gap-3 px-4 py-2 lg:min-h-16 lg:px-8">
             <img src="/brand/washnow-logo-white.svg" alt="WashNow" className="h-8 w-auto lg:hidden" />
             <h1 className="hidden text-2xl text-text lg:block">{current.label}</h1>
@@ -94,7 +102,7 @@ export default function AppShell() {
         </header>
 
         {/* Bottom padding on phones keeps the last control clear of the tab bar. */}
-        <main className="px-4 pt-5 pb-24 lg:px-8 lg:py-6">
+        <main className="relative px-4 pt-5 pb-24 lg:px-8 lg:py-6">
           <h1 className="mb-4 text-2xl text-text lg:hidden">{current.label}</h1>
           <Outlet />
         </main>

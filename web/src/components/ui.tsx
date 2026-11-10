@@ -1,5 +1,6 @@
 import { LoaderCircle, type LucideIcon } from 'lucide-react'
 import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode } from 'react'
+import CornerArt from './CornerArt.tsx'
 import { ICON } from './icon.ts'
 import { focusRing, inputClass } from './styles.ts'
 
@@ -151,18 +152,19 @@ export function StatTile({
 }) {
   return (
     <div
-      className={`flex items-center gap-3 rounded-card border px-4 py-4 ${
+      className={`relative flex items-center gap-3 overflow-hidden rounded-card border px-4 py-4 ${
         strong ? 'border-accent bg-accent text-surface' : 'border-border bg-surface'
       }`}
     >
+      {strong && <CornerArt kind="rings" corner="top-right" size={170} tone="text-surface/15" />}
       <span
-        className={`flex size-11 shrink-0 items-center justify-center rounded-control ${
+        className={`relative flex size-11 shrink-0 items-center justify-center rounded-control ${
           strong ? 'bg-sun text-text' : tileColours[colour]
         }`}
       >
         <Icon size={22} strokeWidth={2} aria-hidden="true" />
       </span>
-      <div className="min-w-0">
+      <div className="relative min-w-0">
         <p className={`text-sm font-semibold ${strong ? 'text-surface/85' : 'text-text-muted'}`}>{label}</p>
         <p className={`money font-heading text-2xl leading-tight font-bold ${strong ? 'text-surface' : valueTone}`}>{value}</p>
         {note && <p className={`text-sm ${strong ? 'text-surface/85' : 'text-text-muted'}`}>{note}</p>}

@@ -47,7 +47,7 @@ Blue is still the colour of every action. These add life in small doses only:
 | success-tint | #DCEFE3 | Icon block for cash and money kept |
 | danger-tint | #F7E1DF | Icon block for expenses |
 
-- **Stripes:** faint diagonal bands (135°, 18 px) run behind every screen and across the blue panels: about 2% blue on the page background and 3% white on blue. Hard edges, never a fade. They should be barely noticeable; cards stay solid white on top. Classes: `stripes-on-page`, `stripes-on-blue`.
+- **Corner art:** no pattern runs across a whole page. Faint thin lines sit only in corners and fade out before the middle: rings spreading from a corner like ripples, mixed with straight diagonal lines. They go in the corners of the page, the blue side bar and the sign-in panel, and in a few chosen blue blocks (the main dashboard tile, the totals band on Today). About 5% blue on the page and 10 to 15% white on blue; if you notice them straight away they are too strong. Use `components/CornerArt.tsx` (`art-rings`, `art-lines`).
 - **Sign-in and PIN screens:** the logo is large and centred in the blue panel, with a short `sun` line under it.
 - Never use a supporting colour for a button, link or selected state, and still no purple or indigo.
 

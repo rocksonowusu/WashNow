@@ -49,9 +49,6 @@
 
   body {
     background-color: var(--color-bg);
-    /* The same stripes as .stripes-on-page, behind every screen. */
-    background-image: repeating-linear-gradient(135deg, rgb(21 94 166 / 0.022) 0 18px, transparent 18px 36px);
-    background-attachment: fixed;
     color: var(--color-text);
     font-family: var(--font-sans);
     font-size: 1rem;
@@ -67,25 +64,29 @@
 }
 
 /*
- * Faint diagonal stripes, like water running off a windscreen. They are meant
- * to be felt more than seen: hard-edged bands a few percent off the colour
- * behind them, never a fade.
+ * Corner art (see components/CornerArt.tsx): thin lines that sit in a corner
+ * and thin out to nothing before they reach the middle. Two kinds, meant to
+ * be mixed: rings spreading from the corner like ripples, and straight
+ * diagonal lines like water running off a windscreen.
+ *
+ * The lines take the element's text colour, so the caller sets how faint they
+ * are (e.g. text-accent/5 on the page, text-surface/10 on blue). --art-at is
+ * the corner the art grows from.
  */
-@utility stripes-on-page {
-  background-image: repeating-linear-gradient(
-    135deg,
-    rgb(21 94 166 / 0.022) 0 18px,
-    transparent 18px 36px
+@utility art-rings {
+  background-image: repeating-radial-gradient(
+    circle at var(--art-at, 100% 0%),
+    transparent 0 22px,
+    currentColor 22px 24px
   );
-  background-attachment: fixed;
+  -webkit-mask-image: radial-gradient(circle at var(--art-at, 100% 0%), #000 0, transparent 72%);
+  mask-image: radial-gradient(circle at var(--art-at, 100% 0%), #000 0, transparent 72%);
 }
 
-@utility stripes-on-blue {
-  background-image: repeating-linear-gradient(
-    135deg,
-    rgb(255 255 255 / 0.03) 0 18px,
-    transparent 18px 36px
-  );
+@utility art-lines {
+  background-image: repeating-linear-gradient(135deg, currentColor 0 2px, transparent 2px 18px);
+  -webkit-mask-image: radial-gradient(circle at var(--art-at, 100% 0%), #000 0, transparent 72%);
+  mask-image: radial-gradient(circle at var(--art-at, 100% 0%), #000 0, transparent 72%);
 }
 
 /* Money columns line up: use on any amount. */

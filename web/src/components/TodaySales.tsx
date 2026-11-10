@@ -1,6 +1,7 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../db/db.ts'
 import { formatMoney, formatTime, todayRange } from '../lib/format.ts'
+import CornerArt from './CornerArt.tsx'
 import { Card, Tag } from './ui.tsx'
 
 /**
@@ -34,8 +35,9 @@ export default function TodaySales() {
   return (
     <Card title="Today’s sales">
       {/* Four across only when this card itself is wide, not just the screen. */}
-      <div className="@container bg-accent px-4 py-4 text-surface">
-        <dl className="grid grid-cols-2 gap-x-4 gap-y-3 @xl:grid-cols-4">
+      <div className="@container relative overflow-hidden bg-accent px-4 py-4 text-surface">
+        <CornerArt kind="rings" corner="top-right" size={220} tone="text-surface/15" />
+        <dl className="relative grid grid-cols-2 gap-x-4 gap-y-3 @xl:grid-cols-4">
           <div>
             <dt className="text-sm font-semibold text-surface/85">Total sales</dt>
             <dd className="money font-heading text-2xl font-bold">{formatMoney(total)}</dd>
