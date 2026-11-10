@@ -19,7 +19,12 @@ return [
 
     'allowed_methods' => ['*'],
 
-    'allowed_origins' => [env('FRONTEND_URL', 'http://localhost:5173')],
+    // FRONTEND_URL may list several origins separated by commas, e.g. the dev
+    // server and the production-build preview. Nothing else is allowed.
+    'allowed_origins' => array_values(array_filter(array_map(
+        'trim',
+        explode(',', (string) env('FRONTEND_URL', 'http://localhost:5173')),
+    ))),
 
     'allowed_origins_patterns' => [],
 

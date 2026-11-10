@@ -21,8 +21,9 @@
   --color-warning: #b7791f;
 
   --font-*: initial;
-  --font-sans: 'Source Sans 3', sans-serif;
-  --font-heading: 'Archivo', sans-serif;
+  /* Bundled with the app (see main.tsx) so they also load with no internet. */
+  --font-sans: 'Source Sans 3 Variable', sans-serif;
+  --font-heading: 'Archivo Variable', sans-serif;
 
   --radius-*: initial;
   --radius-control: 6px;

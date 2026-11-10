@@ -35,7 +35,8 @@ class PushProcessor
         $rejected = [];
 
         DB::transaction(function () use ($user, $items, &$accepted, &$rejected): void {
-            foreach ($items as $item) {
+            foreach ($items as $index => $item) {
+                $item['index'] = $index;
                 $id = $item['record']['id'];
 
                 try {
@@ -95,6 +96,9 @@ class PushProcessor
     private function rejected(array $item, string $reason, string $message): array
     {
         return [
+            // Position in the pushed batch, so the device can match this
+            // reply to the exact outbox row even if one id appears twice.
+            'index' => $item['index'] ?? null,
             'id' => $item['record']['id'],
             'table' => $item['table'],
             'op' => $item['op'],

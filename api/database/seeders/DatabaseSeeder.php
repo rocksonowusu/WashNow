@@ -6,6 +6,7 @@ use App\Enums\UserRole;
 use App\Models\Branch;
 use App\Models\User;
 use App\Models\VehicleCategory;
+use App\Models\Washer;
 use Illuminate\Database\Seeder;
 use RuntimeException;
 
@@ -61,6 +62,18 @@ class DatabaseSeeder extends Seeder
                     'active' => true,
                 ],
             );
+        }
+
+        // On a developer's machine only: two sample washers, so a sale can be
+        // recorded before the owner's settings screens exist. Never seeded on
+        // the real server.
+        if (app()->environment('local')) {
+            foreach (['Kofi (sample)', 'Ama (sample)'] as $name) {
+                Washer::query()->firstOrCreate(
+                    ['branch_id' => $branch->id, 'name' => $name],
+                    ['commission_percent' => 30, 'active' => true],
+                );
+            }
         }
     }
 }
