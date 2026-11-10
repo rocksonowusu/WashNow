@@ -4,12 +4,15 @@ namespace App\Models;
 
 use App\Models\Concerns\BelongsToBranch;
 use App\Models\Concerns\HasUuidSync;
+use Database\Factories\WasherFactory;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Washer extends Model
 {
-    use BelongsToBranch, HasUuidSync;
+    /** @use HasFactory<WasherFactory> */
+    use BelongsToBranch, HasFactory, HasUuidSync;
 
     protected $fillable = ['id', 'branch_id', 'name', 'phone', 'commission_percent', 'active'];
 

@@ -2,23 +2,42 @@
 
 namespace App\Providers;
 
+use App\Models\Branch;
+use App\Models\Customer;
+use App\Models\DayClosing;
+use App\Models\Expense;
+use App\Models\Sale;
+use App\Models\SaleWasher;
+use App\Models\User;
+use App\Models\VehicleCategory;
+use App\Models\Washer;
+use App\Observers\AuditObserver;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
 {
-    /**
-     * Register any application services.
-     */
+    /** Every model whose changes are written to the audit log. */
+    private const AUDITED = [
+        Branch::class,
+        User::class,
+        VehicleCategory::class,
+        Washer::class,
+        Customer::class,
+        Sale::class,
+        SaleWasher::class,
+        Expense::class,
+        DayClosing::class,
+    ];
+
     public function register(): void
     {
         //
     }
 
-    /**
-     * Bootstrap any application services.
-     */
     public function boot(): void
     {
-        //
+        foreach (self::AUDITED as $model) {
+            $model::observe(AuditObserver::class);
+        }
     }
 }

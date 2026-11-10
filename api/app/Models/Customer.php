@@ -4,12 +4,15 @@ namespace App\Models;
 
 use App\Models\Concerns\BelongsToBranch;
 use App\Models\Concerns\HasUuidSync;
+use Database\Factories\CustomerFactory;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Customer extends Model
 {
-    use BelongsToBranch, HasUuidSync;
+    /** @use HasFactory<CustomerFactory> */
+    use BelongsToBranch, HasFactory, HasUuidSync;
 
     // visit_count and total_spent are left out on purpose: the server
     // recalculates them from sales and never accepts them from a device.
