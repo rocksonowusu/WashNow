@@ -16,7 +16,13 @@ type Synced = {
 
 type InBranch = Synced & { branch_id: string }
 
-export type Branch = Synced & { name: string; location: string | null; phone: string | null }
+export type Branch = Synced & {
+  name: string
+  location: string | null
+  phone: string | null
+  /** The rate new crew start on, e.g. "30.00". Null until the owner sets it. */
+  default_commission_percent: string | null
+}
 
 export type User = InBranch & { name: string; phone: string; role: Role; active: boolean }
 

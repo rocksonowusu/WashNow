@@ -8,6 +8,7 @@ use App\Models\Sale;
 use App\Models\User;
 use App\Services\SaleService;
 use App\Support\PlateNumber;
+use App\Sync\IdAliases;
 use App\Sync\Rejection;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Validator;
@@ -18,7 +19,10 @@ use Illuminate\Support\Facades\Validator;
  */
 class SaleHandler extends SyncHandler
 {
-    public function __construct(private readonly SaleService $sales) {}
+    public function __construct(
+        private readonly SaleService $sales,
+        private readonly IdAliases $aliases,
+    ) {}
 
     public function upsert(User $user, array $record): void
     {
@@ -80,6 +84,13 @@ class SaleHandler extends SyncHandler
         ])->validate();
 
         $data['id'] = $record['id'];
+
+        // A crew member added offline earlier in this batch may already have
+        // existed; use the surviving one.
+        $data['washer_ids'] = array_values(array_unique(array_map(
+            fn (string $id) => $this->aliases->resolve($id),
+            $data['washer_ids'],
+        )));
 
         // The device may point at a customer it created offline whose plate
         // turned out to exist already. Fall back to matching by plate.

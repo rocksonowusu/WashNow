@@ -2,6 +2,7 @@ import { ChevronLeft, LockOpen, UserRound } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router'
 import { useAuth } from '../auth/AuthContext.tsx'
+import AuthLayout from '../components/AuthLayout.tsx'
 import { ICON } from '../components/icon.ts'
 import { Button, Field } from '../components/ui.tsx'
 import type { Account } from '../db/types.ts'
@@ -65,12 +66,11 @@ export default function UnlockPage() {
   }
 
   return (
-    <main className="mx-auto max-w-sm px-4 py-10">
-      <img src="/brand/washnow-logo.svg" alt="WashNow" className="h-10 w-auto" />
+    <AuthLayout>
 
       {!chosen ? (
         <>
-          <h1 className="mt-8 text-2xl text-text">Who is using WashNow?</h1>
+          <h1 className="text-2xl text-text">Who is using WashNow?</h1>
           <ul className="mt-6 space-y-2">
             {accounts.map((candidate) => (
               <li key={candidate.user_id}>
@@ -95,7 +95,7 @@ export default function UnlockPage() {
         </>
       ) : (
         <>
-          <h1 className="mt-8 text-2xl text-text">Hello, {chosen.name}</h1>
+          <h1 className="text-2xl text-text">Hello, {chosen.name}</h1>
           <p className="mt-1 text-text-muted">Enter your PIN to unlock.</p>
 
           <form onSubmit={submit} className="mt-6 space-y-4" noValidate>
@@ -132,6 +132,6 @@ export default function UnlockPage() {
           Sign in with phone number and PIN
         </Link>
       </p>
-    </main>
+    </AuthLayout>
   )
 }

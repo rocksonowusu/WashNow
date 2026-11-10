@@ -32,10 +32,9 @@ export default function SyncPanel() {
   }
 
   return (
-    <Card>
+    <Card title="This device and the server">
       <div className="px-4 py-4">
-        <h2 className="text-lg text-text">Sync</h2>
-        <p className={`mt-1 ${sync.phase === 'error' && sync.online ? 'text-danger' : 'text-text-muted'}`}>{status}</p>
+        <p className={sync.phase === 'error' && sync.online ? 'text-danger' : 'text-text-muted'}>{status}</p>
 
         <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2">
           <div>

@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\AuditLogController;
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\BranchController;
 use App\Http\Controllers\Api\CustomerController;
 use App\Http\Controllers\Api\DayClosingController;
 use App\Http\Controllers\Api\ExpenseController;
@@ -29,7 +30,11 @@ Route::middleware(['auth:sanctum', 'role:owner,cashier'])->group(function () {
 
     // Cashier and owner: the day-to-day work.
     Route::get('/categories', [VehicleCategoryController::class, 'index']);
+    Route::get('/branch', [BranchController::class, 'show']);
+
+    // The crew (washers). Anyone can add a person; the owner sets their pay.
     Route::get('/washers', [WasherController::class, 'index']);
+    Route::post('/washers', [WasherController::class, 'store']);
 
     Route::get('/customers', [CustomerController::class, 'index']);
     Route::post('/customers', [CustomerController::class, 'store']);
@@ -53,7 +58,8 @@ Route::middleware(['auth:sanctum', 'role:owner,cashier'])->group(function () {
         Route::put('/categories/{id}', [VehicleCategoryController::class, 'update']);
         Route::delete('/categories/{id}', [VehicleCategoryController::class, 'destroy']);
 
-        Route::post('/washers', [WasherController::class, 'store']);
+        Route::put('/branch', [BranchController::class, 'update']);
+
         Route::put('/washers/{id}', [WasherController::class, 'update']);
         Route::delete('/washers/{id}', [WasherController::class, 'destroy']);
 

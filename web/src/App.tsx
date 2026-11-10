@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import { Navigate, Route, Routes } from 'react-router'
 import { useAuth } from './auth/AuthContext.tsx'
 import AppShell from './components/AppShell.tsx'
+import CrewPage from './pages/CrewPage.tsx'
 import DashboardPage from './pages/DashboardPage.tsx'
 import LoginPage from './pages/LoginPage.tsx'
 import NewSalePage from './pages/NewSalePage.tsx'
@@ -51,6 +52,7 @@ export default function App() {
         <Route path="/" element={<DashboardPage />} />
         <Route path="/new-sale" element={<NewSalePage />} />
         <Route path="/today" element={<TodayPage />} />
+        <Route path="/crew" element={<CrewPage />} />
         <Route path="/sync" element={<SyncPage />} />
       </Route>
 

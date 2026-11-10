@@ -1,23 +1,19 @@
 import { useLiveQuery } from 'dexie-react-hooks'
-import { Check, CircleCheck } from 'lucide-react'
+import { CircleCheck } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { useAuth } from '../auth/AuthContext.tsx'
 import { db } from '../db/db.ts'
 import { createSale, LocalValidationError } from '../db/repositories.ts'
 import type { PaymentMethod } from '../db/types.ts'
 import { formatMoney, parseMoney } from '../lib/format.ts'
+import CrewPicker from './CrewPicker.tsx'
 import { ICON } from './icon.ts'
-import { Button, Card, Field } from './ui.tsx'
-
-const choice =
-  'min-h-12 rounded-control border px-3 py-2 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent'
-const chosen = 'border-accent bg-accent-tint text-text'
-const notChosen = 'border-border bg-surface text-text hover:bg-surface-alt'
+import { Button, Card, Choice, Field } from './ui.tsx'
 
 /**
- * A plain sale form so Stage 4 can be checked end to end: it saves to the
- * device first and the sale then syncs by itself. Stage 5 replaces it with
- * the full New Sale screen.
+ * A plain sale form so the app can be used end to end: it saves to the device
+ * first and the sale then syncs by itself. Stage 5 replaces it with the full
+ * New Sale screen.
  */
 export default function QuickSaleForm() {
   const { account } = useAuth()
@@ -26,7 +22,6 @@ export default function QuickSaleForm() {
     async () => (await db.vehicle_categories.orderBy('sort_order').toArray()).filter((category) => category.active),
     [],
   )
-  const washers = useLiveQuery(async () => (await db.washers.orderBy('name').toArray()).filter((washer) => washer.active), [])
 
   const [categoryId, setCategoryId] = useState<string | null>(null)
   const [amountText, setAmountText] = useState('')
@@ -38,7 +33,7 @@ export default function QuickSaleForm() {
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [saved, setSaved] = useState<string | null>(null)
 
-  if (!account || !categories || !washers) return null
+  if (!account || !categories) return null
 
   const category = categories.find((candidate) => candidate.id === categoryId) ?? null
   const amount = parseMoney(amountText)
@@ -50,16 +45,11 @@ export default function QuickSaleForm() {
     setErrors({})
   }
 
-  function toggleWasher(id: string) {
-    edited()
-    setWasherIds((current) => (current.includes(id) ? current.filter((other) => other !== id) : [...current, id]))
-  }
-
   async function submit(event: FormEvent) {
     event.preventDefault()
     if (!account) return
 
-    if (!categoryId) return setErrors({ categoryId: 'Choose a vehicle category.' })
+    if (!categoryId) return setErrors({ categoryId: 'Choose a vehicle.' })
     if (amount === null) return setErrors({ amount: 'Enter the amount paid, for example 35 or 35.50.' })
 
     setBusy(true)
@@ -88,44 +78,40 @@ export default function QuickSaleForm() {
     }
   }
 
-  if (categories.length === 0 || washers.length === 0) {
+  if (categories.length === 0) {
     return (
-      <Card className="px-4 py-4">
-        <h2 className="text-lg text-text">Record a sale</h2>
-        <p className="mt-1 text-text-muted">
-          {categories.length === 0
-            ? 'Vehicle categories have not reached this device yet. They arrive with the first sync.'
-            : 'There are no washers yet. The owner needs to add washers before a sale can be recorded.'}
+      <Card title="Record a sale">
+        <p className="px-4 py-4 text-text-muted">
+          Vehicle types have not reached this device yet. They arrive with the first sync.
         </p>
       </Card>
     )
   }
 
   return (
-    <Card>
+    <Card title="Record a sale">
       <form onSubmit={submit} noValidate className="space-y-5 px-4 py-4">
-        <h2 className="text-lg text-text">Record a sale</h2>
-
         <fieldset>
-          <legend className="mb-1 text-sm font-semibold text-text-muted">Vehicle</legend>
+          <legend className="mb-1 text-sm font-semibold text-text">Vehicle</legend>
           <div className="grid grid-cols-2 gap-2 lg:grid-cols-3">
-            {categories.map((candidate) => (
-              <button
-                key={candidate.id}
-                type="button"
-                aria-pressed={candidate.id === categoryId}
-                onClick={() => {
-                  edited()
-                  setCategoryId(candidate.id)
-                }}
-                className={`${choice} ${candidate.id === categoryId ? chosen : notChosen}`}
-              >
-                <span className="block font-semibold">{candidate.name}</span>
-                <span className="money block text-sm text-text-muted">
-                  {formatMoney(candidate.min_price)} to {formatMoney(candidate.max_price)}
-                </span>
-              </button>
-            ))}
+            {categories.map((candidate) => {
+              const picked = candidate.id === categoryId
+              return (
+                <Choice
+                  key={candidate.id}
+                  chosen={picked}
+                  onClick={() => {
+                    edited()
+                    setCategoryId(candidate.id)
+                  }}
+                >
+                  <span className="block">{candidate.name}</span>
+                  <span className={`money block text-sm font-normal ${picked ? 'text-surface/85' : 'text-text-muted'}`}>
+                    {formatMoney(candidate.min_price)} to {formatMoney(candidate.max_price)}
+                  </span>
+                </Choice>
+              )
+            })}
           </div>
           {errors.categoryId && <p className="mt-1 text-sm text-danger">{errors.categoryId}</p>}
         </fieldset>
@@ -136,7 +122,7 @@ export default function QuickSaleForm() {
           inputMode="decimal"
           autoComplete="off"
           placeholder="0.00"
-          className="money text-lg"
+          className="money text-xl font-semibold"
           value={amountText}
           onChange={(event) => {
             edited()
@@ -164,44 +150,31 @@ export default function QuickSaleForm() {
           />
         )}
 
-        <fieldset>
-          <legend className="mb-1 text-sm font-semibold text-text-muted">Washed by</legend>
-          <div className="grid grid-cols-2 gap-2">
-            {washers.map((washer) => {
-              const picked = washerIds.includes(washer.id)
-              return (
-                <button
-                  key={washer.id}
-                  type="button"
-                  aria-pressed={picked}
-                  onClick={() => toggleWasher(washer.id)}
-                  className={`${choice} flex items-center justify-between gap-2 font-semibold ${picked ? chosen : notChosen}`}
-                >
-                  {washer.name}
-                  {picked && <Check {...ICON} className="shrink-0 text-accent" />}
-                </button>
-              )
-            })}
-          </div>
-          {errors.washerIds && <p className="mt-1 text-sm text-danger">{errors.washerIds}</p>}
-        </fieldset>
+        <CrewPicker
+          account={account}
+          selectedIds={washerIds}
+          onChange={(ids) => {
+            edited()
+            setWasherIds(ids)
+          }}
+          error={errors.washerIds}
+        />
 
         <fieldset>
-          <legend className="mb-1 text-sm font-semibold text-text-muted">Paid with</legend>
+          <legend className="mb-1 text-sm font-semibold text-text">Paid with</legend>
           <div className="grid grid-cols-2 gap-2">
             {(['cash', 'momo'] as const).map((option) => (
-              <button
+              <Choice
                 key={option}
-                type="button"
-                aria-pressed={method === option}
+                chosen={method === option}
+                className="text-center"
                 onClick={() => {
                   edited()
                   setMethod(option)
                 }}
-                className={`${choice} text-center font-semibold ${method === option ? chosen : notChosen}`}
               >
                 {option === 'cash' ? 'Cash' : 'MoMo'}
-              </button>
+              </Choice>
             ))}
           </div>
         </fieldset>
@@ -221,12 +194,12 @@ export default function QuickSaleForm() {
 
         {errors.form && <p className="text-danger">{errors.form}</p>}
 
-        <Button type="submit" busy={busy} disabled={outOfRange && !isOwner} className="w-full text-lg">
+        <Button type="submit" busy={busy} disabled={outOfRange && !isOwner} className="min-h-14 w-full text-lg">
           Save sale
         </Button>
 
         {saved && (
-          <p role="status" className="flex items-center gap-2 font-semibold text-success">
+          <p role="status" className="flex items-center gap-2 rounded-control bg-success px-3 py-2 font-semibold text-surface">
             <CircleCheck {...ICON} className="shrink-0" />
             {saved}
           </p>

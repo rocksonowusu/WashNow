@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 620 160" role="img" aria-label="WashNow">
+  <!-- White-on-blue version, for the navigation bar and sign-in panel (#155EA6 behind it). -->
+  <g transform="translate(10 18) scale(1.6)">
+  <path d="M2 29 L12 23" stroke="#FFFFFF" stroke-width="6" stroke-linecap="round" fill="none"/>
+  <path d="M12 23 L20 18.5" stroke="#FFFFFF" stroke-width="3.5" stroke-linecap="round" fill="none"/>
+  <path d="M22 17 Q64 -12 110 18" stroke="#FFFFFF" stroke-width="3.5" stroke-linecap="round" fill="none"/>
+  <path d="M24 21 Q66 -2 106 25" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" stroke-dasharray="0.1 6.5" fill="none"/>
+  <circle cx="114" cy="25" r="2.4" fill="#FFFFFF"/>
+  <circle cx="119" cy="33" r="1.9" fill="#FFFFFF"/>
+  <circle cx="110" cy="32" r="1.5" fill="#FFFFFF"/>
+  <path d="M8 56 L8 48 Q8 42 14 41 L30 38 L42 26 Q45 23 50 23 L76 23 Q81 23 84 27 L94 38 L108 41 Q114 42 114 48 L114 56 Z" fill="#FFFFFF"/>
+  <path d="M47 37 L52 29 Q53 27 56 27 L66 27 L66 37 Z" fill="#155EA6"/>
+  <path d="M70 27 L78 27 Q81 27 82.5 29 L88 37 L70 37 Z" fill="#155EA6"/>
+  <circle cx="31" cy="57" r="9" fill="#15202B" stroke="#155EA6" stroke-width="3.5"/>
+  <circle cx="91" cy="57" r="9" fill="#15202B" stroke="#155EA6" stroke-width="3.5"/>
+  </g>
+  <text x="232" y="112" font-family="Archivo, 'Arial Narrow', sans-serif" font-weight="800" font-size="84" letter-spacing="-1.5" fill="#FFFFFF">WashNow</text>
+</svg>

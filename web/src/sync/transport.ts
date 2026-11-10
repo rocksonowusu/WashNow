@@ -109,6 +109,8 @@ export async function applyPushReply(items: OutboxItem[], reply: PushReply): Pro
 
         if (rejection.reason === 'duplicate_plate' && serverRecord) {
           await adoptExistingCustomer(item.record_id, serverRecord)
+        } else if (rejection.reason === 'duplicate_name' && serverRecord) {
+          await adoptExistingCrewMember(item.record_id, serverRecord)
         } else if (serverRecord) {
           if (serverRecord.deleted_at) await table.delete(serverRecord.id)
           else await table.put(serverRecord)
@@ -134,6 +136,31 @@ async function adoptExistingCustomer(localId: string, existing: ServerRecord): P
     .filter((item) => item.table === 'sales' && item.record.customer_id === localId)
     .modify((item) => {
       item.record.customer_id = existing.id
+    })
+}
+
+/**
+ * Someone with this name was already on the crew list. Swap our local crew
+ * member for the existing one, in sales saved here and in sales still waiting.
+ */
+async function adoptExistingCrewMember(localId: string, existing: ServerRecord): Promise<void> {
+  const swap = (ids: unknown): string[] => [
+    ...new Set((Array.isArray(ids) ? (ids as string[]) : []).map((id) => (id === localId ? existing.id : id))),
+  ]
+
+  await db.washers.delete(localId)
+  await db.table('washers').put(existing)
+
+  await db.sales
+    .filter((sale) => sale.washer_ids?.includes(localId) ?? false)
+    .modify((sale) => {
+      sale.washer_ids = swap(sale.washer_ids)
+    })
+
+  await db.outbox
+    .filter((item) => item.table === 'sales' && Array.isArray(item.record.washer_ids) && item.record.washer_ids.includes(localId))
+    .modify((item) => {
+      item.record.washer_ids = swap(item.record.washer_ids)
     })
 }
 

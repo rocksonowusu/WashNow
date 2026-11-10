@@ -5,12 +5,12 @@ namespace App\Sync;
 use App\Exceptions\DayClosedException;
 use App\Models\User;
 use App\Models\VehicleCategory;
-use App\Models\Washer;
 use App\Sync\Handlers\CustomerHandler;
 use App\Sync\Handlers\ExpenseHandler;
 use App\Sync\Handlers\SaleHandler;
 use App\Sync\Handlers\SettingHandler;
 use App\Sync\Handlers\SyncHandler;
+use App\Sync\Handlers\WasherHandler;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -84,7 +84,7 @@ class PushProcessor
             'expenses' => app(ExpenseHandler::class),
             'customers' => app(CustomerHandler::class),
             'vehicle_categories' => new SettingHandler(VehicleCategory::class),
-            'washers' => new SettingHandler(Washer::class),
+            'washers' => app(WasherHandler::class),
             default => throw new Rejection('unknown_table', "Records in [{$table}] cannot be changed from a device."),
         };
     }

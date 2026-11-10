@@ -2,6 +2,7 @@ import { LogIn, WifiOff } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { Link, Navigate, useLocation } from 'react-router'
 import { useAuth } from '../auth/AuthContext.tsx'
+import AuthLayout from '../components/AuthLayout.tsx'
 import { ICON } from '../components/icon.ts'
 import { Button, Field } from '../components/ui.tsx'
 import { ApiError, NetworkError } from '../lib/api.ts'
@@ -47,10 +48,9 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="mx-auto max-w-sm px-4 py-10">
-      <img src="/brand/washnow-logo.svg" alt="WashNow" className="h-10 w-auto" />
+    <AuthLayout>
 
-      <h1 className="mt-8 text-2xl text-text">Sign in</h1>
+      <h1 className="text-2xl text-text">Sign in</h1>
       <p className="mt-1 text-text-muted">Use the phone number and PIN the owner gave you.</p>
 
       {prefill.notice && <p className="mt-4 rounded-control border border-warning px-3 py-2 text-warning">{prefill.notice}</p>}
@@ -101,6 +101,6 @@ export default function LoginPage() {
           </Link>
         </p>
       )}
-    </main>
+    </AuthLayout>
   )
 }

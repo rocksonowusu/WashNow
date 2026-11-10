@@ -2,7 +2,17 @@ import { formatMoney, normalisePlate } from '../lib/format.ts'
 import { uuidv7 } from '../lib/uuid.ts'
 import { syncService } from '../sync/SyncService.ts'
 import { db } from './db.ts'
-import type { Account, Customer, Expense, ExpenseCategory, OutboxItem, PaymentMethod, PushTable, Sale } from './types.ts'
+import type {
+  Account,
+  Customer,
+  Expense,
+  ExpenseCategory,
+  OutboxItem,
+  PaymentMethod,
+  PushTable,
+  Sale,
+  Washer,
+} from './types.ts'
 
 /**
  * Every write in the app goes through this file. Each one saves the record on
@@ -21,9 +31,14 @@ export class LocalValidationError extends Error {
   }
 }
 
-function outboxItem(account: Account, table: PushTable, record: OutboxItem['record']): OutboxItem {
+function outboxItem(
+  account: Account,
+  table: PushTable,
+  record: OutboxItem['record'],
+  op: OutboxItem['op'] = 'upsert',
+): OutboxItem {
   return {
-    op: 'upsert',
+    op,
     table,
     record,
     record_id: record.id,
@@ -209,4 +224,140 @@ export async function createCustomer(account: Account, input: NewCustomer): Prom
 
   syncService.requestSoon()
   return customer
+}
+
+// ---------------------------------------------------------------------------
+// Crew: the people who wash the vehicles (the `washers` table).
+// ---------------------------------------------------------------------------
+
+/** "  yaw   mensah " and "Yaw Mensah" are the same person. */
+function cleanName(name: string): string {
+  return name.trim().replace(/\s+/g, ' ')
+}
+
+async function findCrewByName(name: string, exceptId?: string): Promise<Washer | undefined> {
+  const wanted = cleanName(name).toLowerCase()
+  return (await db.washers.toArray()).find((washer) => washer.id !== exceptId && washer.name.toLowerCase() === wanted)
+}
+
+function checkPercent(percent: number): void {
+  if (!Number.isFinite(percent) || percent < 0 || percent > 100) {
+    throw new LocalValidationError('commissionPercent', 'Commission must be between 0 and 100.')
+  }
+}
+
+export type NewCrewMember = {
+  name: string
+  /** Owner only. Left out, the bay's standard commission is used. */
+  commissionPercent?: number | null
+}
+
+/**
+ * Anyone can add a crew member, so a new person can be added while a sale is
+ * being recorded. Their pay is the owner's decision: a cashier's addition
+ * always starts on the bay's standard commission.
+ */
+export async function createCrewMember(account: Account, input: NewCrewMember): Promise<Washer> {
+  const name = cleanName(input.name)
+  if (name === '') {
+    throw new LocalValidationError('name', 'Enter the person’s name.')
+  }
+
+  const existing = await findCrewByName(name)
+  if (existing) {
+    throw new LocalValidationError('name', `${existing.name} is already on the crew list.`)
+  }
+
+  const branch = await db.branches.get(account.branch_id)
+  const standard = branch?.default_commission_percent != null ? Number(branch.default_commission_percent) : null
+  const percent = account.role === 'owner' ? (input.commissionPercent ?? standard) : standard
+
+  if (percent === null) {
+    throw new LocalValidationError(
+      'commissionPercent',
+      account.role === 'owner'
+        ? 'Set the standard commission on the Crew screen first, or add this person there with their own rate.'
+        : 'The owner needs to set the standard commission before new crew can be added.',
+    )
+  }
+  checkPercent(percent)
+
+  const washer: Washer = {
+    ...fresh(account),
+    name,
+    phone: null,
+    commission_percent: percent.toFixed(2),
+    active: true,
+  }
+
+  await db.transaction('rw', db.washers, db.outbox, async () => {
+    await db.washers.add(washer)
+    await db.outbox.add(
+      outboxItem(account, 'washers', {
+        id: washer.id,
+        name: washer.name,
+        commission_percent: washer.commission_percent,
+        active: true,
+        version: washer.version,
+      }),
+    )
+  })
+
+  syncService.requestSoon()
+  return washer
+}
+
+export type CrewChanges = { name?: string; commissionPercent?: number }
+
+/** Owner only: rename someone or change what they are paid from now on. */
+export async function updateCrewMember(account: Account, id: string, changes: CrewChanges): Promise<Washer> {
+  if (account.role !== 'owner') {
+    throw new LocalValidationError('form', 'Only the owner can change a crew member.')
+  }
+
+  const washer = await db.washers.get(id)
+  if (!washer) {
+    throw new LocalValidationError('form', 'This crew member is no longer on the list.')
+  }
+
+  const patch: Partial<Pick<Washer, 'name' | 'commission_percent'>> = {}
+
+  if (changes.name !== undefined) {
+    const name = cleanName(changes.name)
+    if (name === '') throw new LocalValidationError('name', 'Enter the person’s name.')
+
+    const clash = await findCrewByName(name, id)
+    if (clash) throw new LocalValidationError('name', `${clash.name} is already on the crew list.`)
+
+    patch.name = name
+  }
+
+  if (changes.commissionPercent !== undefined) {
+    checkPercent(changes.commissionPercent)
+    patch.commission_percent = changes.commissionPercent.toFixed(2)
+  }
+
+  const updated: Washer = { ...washer, ...patch, version: washer.version + 1, updated_at: new Date().toISOString() }
+
+  await db.transaction('rw', db.washers, db.outbox, async () => {
+    await db.washers.put(updated)
+    await db.outbox.add(outboxItem(account, 'washers', { id, ...patch, version: updated.version }))
+  })
+
+  syncService.requestSoon()
+  return updated
+}
+
+/** Owner only. Past sales keep the person's name and pay; they just leave the list. */
+export async function removeCrewMember(account: Account, id: string): Promise<void> {
+  if (account.role !== 'owner') {
+    throw new LocalValidationError('form', 'Only the owner can remove a crew member.')
+  }
+
+  await db.transaction('rw', db.washers, db.outbox, async () => {
+    await db.washers.delete(id)
+    await db.outbox.add(outboxItem(account, 'washers', { id }, 'delete'))
+  })
+
+  syncService.requestSoon()
 }

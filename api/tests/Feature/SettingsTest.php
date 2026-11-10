@@ -22,7 +22,7 @@ it('blocks a cashier from every owner-only route', function (string $method, str
     ['POST', '/api/categories'],
     ['PUT', '/api/categories/{category}'],
     ['DELETE', '/api/categories/{category}'],
-    ['POST', '/api/washers'],
+    ['PUT', '/api/branch'],
     ['PUT', '/api/washers/{washer}'],
     ['DELETE', '/api/washers/{washer}'],
     ['DELETE', '/api/customers/{user}'],

@@ -32,35 +32,33 @@ export default function TodaySales() {
   const cash = counted.filter((sale) => sale.payment_method === 'cash').reduce((sum, sale) => sum + sale.amount, 0)
 
   return (
-    <Card>
+    <Card title="Today’s sales">
       {/* Four across only when this card itself is wide, not just the screen. */}
-      <div className="@container px-4 py-4">
-        <h2 className="text-lg text-text">Today</h2>
-
-        <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 @xl:grid-cols-4">
+      <div className="@container bg-accent px-4 py-4 text-surface">
+        <dl className="grid grid-cols-2 gap-x-4 gap-y-3 @xl:grid-cols-4">
           <div>
-            <dt className="text-sm text-text-muted">Cars washed</dt>
-            <dd className="money font-heading text-2xl font-bold text-text">{counted.length}</dd>
+            <dt className="text-sm font-semibold text-surface/85">Total sales</dt>
+            <dd className="money font-heading text-2xl font-bold">{formatMoney(total)}</dd>
           </div>
           <div>
-            <dt className="text-sm text-text-muted">Total sales</dt>
-            <dd className="money font-heading text-2xl font-bold text-text">{formatMoney(total)}</dd>
+            <dt className="text-sm font-semibold text-surface/85">Vehicles washed</dt>
+            <dd className="money font-heading text-2xl font-bold">{counted.length}</dd>
           </div>
           <div>
-            <dt className="text-sm text-text-muted">Cash</dt>
-            <dd className="money text-lg font-semibold text-text">{formatMoney(cash)}</dd>
+            <dt className="text-sm font-semibold text-surface/85">Cash</dt>
+            <dd className="money text-lg font-semibold">{formatMoney(cash)}</dd>
           </div>
           <div>
-            <dt className="text-sm text-text-muted">MoMo</dt>
-            <dd className="money text-lg font-semibold text-text">{formatMoney(total - cash)}</dd>
+            <dt className="text-sm font-semibold text-surface/85">MoMo</dt>
+            <dd className="money text-lg font-semibold">{formatMoney(total - cash)}</dd>
           </div>
         </dl>
       </div>
 
       {data.sales.length === 0 ? (
-        <p className="border-t border-border px-4 py-4 text-text-muted">No sales recorded today yet.</p>
+        <p className="px-4 py-4 text-text-muted">No sales recorded today yet.</p>
       ) : (
-        <ul className="border-t border-border">
+        <ul>
           {data.sales.map((sale) => (
             <li key={sale.id} className="flex items-start justify-between gap-3 border-b border-border px-4 py-3 last:border-b-0">
               <div className="min-w-0">

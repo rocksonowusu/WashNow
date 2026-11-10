@@ -1,22 +1,12 @@
 import { useLiveQuery } from 'dexie-react-hooks'
-import { ArrowRight, CirclePlus } from 'lucide-react'
-import type { ReactNode } from 'react'
+import { ArrowRight, Banknote, CarFront, CirclePlus, HandCoins, PiggyBank, Receipt, Smartphone, Wallet } from 'lucide-react'
 import { Link } from 'react-router'
 import { useAuth } from '../auth/AuthContext.tsx'
 import { ICON } from '../components/icon.ts'
-import { Card, Tag } from '../components/ui.tsx'
+import { tableHead } from '../components/styles.ts'
+import { Card, StatTile, Tag } from '../components/ui.tsx'
 import { db } from '../db/db.ts'
 import { formatMoney, formatTime, todayRange } from '../lib/format.ts'
-
-function Stat({ label, value, note, tone = 'text-text' }: { label: string; value: ReactNode; note?: string; tone?: string }) {
-  return (
-    <Card className="px-4 py-3">
-      <p className="text-sm text-text-muted">{label}</p>
-      <p className={`money font-heading text-2xl font-bold ${tone}`}>{value}</p>
-      {note && <p className="text-sm text-text-muted">{note}</p>}
-    </Card>
-  )
-}
 
 /**
  * Today at a glance, read from the device so it works offline. Everyone sees
@@ -55,6 +45,7 @@ export default function DashboardPage() {
   const cash = sum(data.counted.filter((sale) => sale.payment_method === 'cash'))
   const expensesTotal = sum(data.expenses.filter((expense) => expense.sync_state !== 'rejected'))
   const commissionTotal = data.commissions.reduce((owed, row) => owed + row.commission_amount, 0)
+  const left = total - expensesTotal - commissionTotal
 
   // The server works out commission, so sales still waiting to sync have none yet.
   const withCommission = new Set(data.commissions.map((row) => row.sale_id))
@@ -67,10 +58,10 @@ export default function DashboardPage() {
     })
     .filter((row) => row.cars > 0)
 
-  const byWasher = data.washers
-    .map((washer) => {
-      const rows = data.commissions.filter((row) => row.washer_id === washer.id)
-      return { id: washer.id, name: washer.name, cars: rows.length, amount: rows.reduce((owed, row) => owed + row.commission_amount, 0) }
+  const byCrew = data.washers
+    .map((member) => {
+      const rows = data.commissions.filter((row) => row.washer_id === member.id)
+      return { id: member.id, name: member.name, cars: rows.length, amount: rows.reduce((owed, row) => owed + row.commission_amount, 0) }
     })
     .filter((row) => row.cars > 0)
 
@@ -81,57 +72,60 @@ export default function DashboardPage() {
     <div className="space-y-5">
       <Link
         to="/new-sale"
-        className="flex min-h-16 items-center justify-center gap-2 rounded-control bg-accent px-4 text-xl font-semibold text-surface hover:bg-accent-pressed focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:bg-accent-pressed lg:max-w-sm"
+        className="flex min-h-16 items-center justify-center gap-2 rounded-control bg-accent px-4 text-xl font-semibold text-surface hover:bg-accent-pressed focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:bg-accent-pressed lg:hidden"
       >
         <CirclePlus size={24} strokeWidth={2} aria-hidden="true" />
         New sale
       </Link>
 
-      <section aria-label="Sales today" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Stat label="Cars washed" value={data.counted.length} />
-        <Stat label="Total sales" value={formatMoney(total)} />
-        <Stat label="Cash" value={formatMoney(cash)} />
-        <Stat label="MoMo" value={formatMoney(total - cash)} />
+      <section aria-label="Sales today" className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <StatTile strong icon={Wallet} label="Total sales today" value={formatMoney(total)} />
+        <StatTile colour="aqua" icon={CarFront} label="Vehicles washed" value={data.counted.length} />
+        <StatTile colour="success" icon={Banknote} label="Cash" value={formatMoney(cash)} />
+        <StatTile colour="sun" icon={Smartphone} label="MoMo" value={formatMoney(total - cash)} />
       </section>
 
       {isOwner && (
-        <section aria-label="Money today" className="grid grid-cols-2 gap-3 lg:grid-cols-3">
-          <Stat label="Expenses" value={formatMoney(expensesTotal)} />
-          <Stat
-            label="Commission owed"
+        <section aria-label="Money today" className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          <StatTile colour="danger" icon={Receipt} label="Expenses" value={formatMoney(expensesTotal)} />
+          <StatTile
+            colour="aqua"
+            icon={HandCoins}
+            label="Crew commission owed"
             value={formatMoney(commissionTotal)}
             note={awaitingCommission > 0 ? `${awaitingCommission} sale(s) not counted until synced` : undefined}
           />
-          <div className="col-span-2 lg:col-span-1">
-            <Stat
+          <div className="sm:col-span-2 xl:col-span-1">
+            <StatTile
+              colour="success"
+              icon={PiggyBank}
               label="Left after expenses and commission"
-              value={formatMoney(total - expensesTotal - commissionTotal)}
-              tone={total - expensesTotal - commissionTotal < 0 ? 'text-danger' : 'text-success'}
+              value={formatMoney(left)}
+              valueTone={left < 0 ? 'text-danger' : 'text-success'}
             />
           </div>
         </section>
       )}
 
       <div className="grid items-start gap-5 lg:grid-cols-2">
-        <Card>
-          <h2 className="px-4 pt-4 text-lg text-text">By vehicle</h2>
+        <Card title="By vehicle">
           {byCategory.length === 0 ? (
             <p className="px-4 py-4 text-text-muted">No sales recorded today yet.</p>
           ) : (
-            <table className="mt-2 w-full">
+            <table className="w-full">
               <thead>
-                <tr className="border-b border-border text-left text-sm text-text-muted">
+                <tr className={tableHead}>
                   <th scope="col" className="px-4 py-2 font-semibold">Vehicle</th>
-                  <th scope="col" className="px-4 py-2 text-right font-semibold">Cars</th>
+                  <th scope="col" className="px-4 py-2 text-right font-semibold">Washed</th>
                   <th scope="col" className="px-4 py-2 text-right font-semibold">Sales</th>
                 </tr>
               </thead>
               <tbody>
                 {byCategory.map((row) => (
-                  <tr key={row.id} className="border-b border-border last:border-b-0">
+                  <tr key={row.id} className="border-t border-border">
                     <td className="px-4 py-3 font-semibold text-text">{row.name}</td>
                     <td className="money px-4 py-3 text-right text-text">{row.cars}</td>
-                    <td className="money px-4 py-3 text-right text-text">{formatMoney(row.amount)}</td>
+                    <td className="money px-4 py-3 text-right font-semibold text-text">{formatMoney(row.amount)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -139,17 +133,18 @@ export default function DashboardPage() {
           )}
         </Card>
 
-        <Card>
-          <div className="flex items-center justify-between gap-3 px-4 pt-4">
-            <h2 className="text-lg text-text">Latest sales</h2>
+        <Card
+          title="Latest sales"
+          action={
             <Link to="/today" className="inline-flex items-center gap-1 font-semibold text-accent underline">
               See all <ArrowRight {...ICON} />
             </Link>
-          </div>
+          }
+        >
           {recent.length === 0 ? (
             <p className="px-4 py-4 text-text-muted">No sales recorded today yet.</p>
           ) : (
-            <ul className="mt-2">
+            <ul>
               {recent.map((sale) => (
                 <li key={sale.id} className="flex items-center justify-between gap-3 border-b border-border px-4 py-3 last:border-b-0">
                   <div className="min-w-0">
@@ -180,25 +175,24 @@ export default function DashboardPage() {
         </Card>
 
         {isOwner && (
-          <Card className="lg:col-span-2">
-            <h2 className="px-4 pt-4 text-lg text-text">Washers today</h2>
-            {byWasher.length === 0 ? (
+          <Card title="Crew today" className="lg:col-span-2">
+            {byCrew.length === 0 ? (
               <p className="px-4 py-4 text-text-muted">No commission to show yet. It appears once today’s sales have synced.</p>
             ) : (
-              <table className="mt-2 w-full">
+              <table className="w-full">
                 <thead>
-                  <tr className="border-b border-border text-left text-sm text-text-muted">
-                    <th scope="col" className="px-4 py-2 font-semibold">Washer</th>
-                    <th scope="col" className="px-4 py-2 text-right font-semibold">Cars</th>
+                  <tr className={tableHead}>
+                    <th scope="col" className="px-4 py-2 font-semibold">Name</th>
+                    <th scope="col" className="px-4 py-2 text-right font-semibold">Washed</th>
                     <th scope="col" className="px-4 py-2 text-right font-semibold">Commission owed</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {byWasher.map((row) => (
-                    <tr key={row.id} className="border-b border-border last:border-b-0">
+                  {byCrew.map((row) => (
+                    <tr key={row.id} className="border-t border-border">
                       <td className="px-4 py-3 font-semibold text-text">{row.name}</td>
                       <td className="money px-4 py-3 text-right text-text">{row.cars}</td>
-                      <td className="money px-4 py-3 text-right text-text">{formatMoney(row.amount)}</td>
+                      <td className="money px-4 py-3 text-right font-semibold text-text">{formatMoney(row.amount)}</td>
                     </tr>
                   ))}
                 </tbody>

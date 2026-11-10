@@ -13,7 +13,17 @@ class Branch extends Model
     /** @use HasFactory<BranchFactory> */
     use HasFactory, HasUuidSync;
 
-    protected $fillable = ['id', 'name', 'location', 'phone'];
+    protected $fillable = ['id', 'name', 'location', 'phone', 'default_commission_percent'];
+
+    /**
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'default_commission_percent' => 'decimal:2',
+        ];
+    }
 
     /**
      * @return HasMany<User, $this>
