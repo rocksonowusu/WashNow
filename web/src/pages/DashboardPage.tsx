@@ -82,7 +82,7 @@ export default function DashboardPage() {
         <StatTile strong icon={Wallet} label="Total sales today" value={formatMoney(total)} />
         <StatTile colour="aqua" icon={CarFront} label="Vehicles washed" value={data.counted.length} />
         <StatTile colour="success" icon={Banknote} label="Cash" value={formatMoney(cash)} />
-        <StatTile colour="sun" icon={Smartphone} label="MoMo" value={formatMoney(total - cash)} />
+        <StatTile icon={Smartphone} label="MoMo" value={formatMoney(total - cash)} />
       </section>
 
       {isOwner && (

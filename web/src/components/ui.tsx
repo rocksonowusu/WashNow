@@ -124,7 +124,6 @@ export function Card({
 const tileColours = {
   accent: 'bg-accent-tint text-accent',
   aqua: 'bg-aqua-tint text-aqua',
-  sun: 'bg-sun text-text',
   success: 'bg-success-tint text-success',
   danger: 'bg-danger-tint text-danger',
 } as const
@@ -159,7 +158,7 @@ export function StatTile({
       {strong && <CornerArt kind="rings" corner="top-right" size={170} tone="text-surface/15" />}
       <span
         className={`relative flex size-11 shrink-0 items-center justify-center rounded-control ${
-          strong ? 'bg-sun text-text' : tileColours[colour]
+          strong ? 'bg-surface text-accent' : tileColours[colour]
         }`}
       >
         <Icon size={22} strokeWidth={2} aria-hidden="true" />

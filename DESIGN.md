@@ -43,7 +43,7 @@ Blue is still the colour of every action. These add life in small doses only:
 | Token | Hex | Use |
 |---|---|---|
 | aqua / aqua-tint | #0B7F86 / #DCF0F1 | Icon blocks for counts (vehicles, crew) |
-| sun / sun-tint | #F0B429 / #FCF1D2 | The short marker line under the logo, MoMo, the icon block on the main blue tile. Dark text on `sun`. |
+| sun / sun-tint | #F0B429 / #FCF1D2 | Only the short marker line under the logo on the sign-in and PIN screens. Never on the dashboard or inside the app (owner disliked it there). |
 | success-tint | #DCEFE3 | Icon block for cash and money kept |
 | danger-tint | #F7E1DF | Icon block for expenses |
 

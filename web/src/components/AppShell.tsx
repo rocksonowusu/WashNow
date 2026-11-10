@@ -38,9 +38,7 @@ export default function AppShell() {
         <CornerArt kind="lines" corner="bottom-left" size={340} tone="text-surface/10" />
 
         <div className="relative px-5 py-5">
-          <img src="/brand/washnow-logo-white.svg" alt="WashNow" className="h-10 w-auto" />
-          <span aria-hidden="true" className="mt-3 block h-1 w-12 rounded-control bg-sun" />
-        </div>
+          <img src="/brand/washnow-logo-white.svg" alt="WashNow" className="h-10 w-auto" />        </div>
 
         <nav aria-label="Main" className="relative flex-1 space-y-1 overflow-y-auto px-3 py-2">
           {DESTINATIONS.map(({ to, label, icon: Icon }) => (
