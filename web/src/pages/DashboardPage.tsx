@@ -5,6 +5,7 @@ import { useAuth } from '../auth/AuthContext.tsx'
 import { ICON } from '../components/icon.ts'
 import { tableHead } from '../components/styles.ts'
 import { Card, StatTile, Tag } from '../components/ui.tsx'
+import VoidRequests from '../components/VoidRequests.tsx'
 import { db } from '../db/db.ts'
 import { formatMoney, formatTime, todayRange } from '../lib/format.ts'
 
@@ -77,6 +78,8 @@ export default function DashboardPage() {
         <CirclePlus size={24} strokeWidth={2} aria-hidden="true" />
         New sale
       </Link>
+
+      <VoidRequests />
 
       <section aria-label="Sales today" className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <StatTile strong icon={Wallet} label="Total sales today" value={formatMoney(total)} />

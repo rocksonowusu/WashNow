@@ -1,34 +1,30 @@
 import { useLiveQuery } from 'dexie-react-hooks'
+import { useAuth } from '../auth/AuthContext.tsx'
 import { db } from '../db/db.ts'
-import { formatMoney, formatTime, todayRange } from '../lib/format.ts'
+import { formatMoney, todayRange } from '../lib/format.ts'
+import { useLookups } from '../lib/useLookups.ts'
 import CornerArt from './CornerArt.tsx'
-import { Card, Tag } from './ui.tsx'
+import SaleRow from './SaleRow.tsx'
+import { Card } from './ui.tsx'
 
 /**
  * Today's totals and list, read from the device. A sale appears here the
- * moment it is saved, with a tag until the server has confirmed it.
+ * moment it is saved, with a tag until the server has confirmed it. Tap a
+ * sale for its details and void actions.
  */
 export default function TodaySales() {
-  const data = useLiveQuery(async () => {
+  const { account } = useAuth()
+  const lookups = useLookups()
+
+  const sales = useLiveQuery(() => {
     const { start, end } = todayRange()
-
-    const [sales, categories, outbox] = await Promise.all([
-      db.sales.where('sold_at').between(start, end, true, false).reverse().sortBy('sold_at'),
-      db.vehicle_categories.toArray(),
-      db.outbox.toArray(),
-    ])
-
-    return {
-      sales,
-      categoryNames: new Map(categories.map((category) => [category.id, category.name])),
-      waiting: new Set(outbox.map((item) => item.record_id)),
-    }
+    return db.sales.where('sold_at').between(start, end, true, false).reverse().sortBy('sold_at')
   }, [])
 
-  if (!data) return null
+  if (!sales || !lookups || !account) return null
 
   // Voided and refused sales stay in the list but never count.
-  const counted = data.sales.filter((sale) => sale.status === 'active' && sale.sync_state !== 'rejected')
+  const counted = sales.filter((sale) => sale.status === 'active' && sale.sync_state !== 'rejected')
   const total = counted.reduce((sum, sale) => sum + sale.amount, 0)
   const cash = counted.filter((sale) => sale.payment_method === 'cash').reduce((sum, sale) => sum + sale.amount, 0)
 
@@ -57,35 +53,12 @@ export default function TodaySales() {
         </dl>
       </div>
 
-      {data.sales.length === 0 ? (
+      {sales.length === 0 ? (
         <p className="px-4 py-4 text-text-muted">No sales recorded today yet.</p>
       ) : (
         <ul>
-          {data.sales.map((sale) => (
-            <li key={sale.id} className="flex items-start justify-between gap-3 border-b border-border px-4 py-3 last:border-b-0">
-              <div className="min-w-0">
-                <p className="font-semibold text-text">
-                  {data.categoryNames.get(sale.category_id) ?? 'Vehicle'}
-                  {sale.plate_number && <span className="font-normal text-text-muted"> · {sale.plate_number}</span>}
-                </p>
-                <p className="text-sm text-text-muted">
-                  {formatTime(sale.sold_at)} · {sale.payment_method === 'cash' ? 'Cash' : 'MoMo'}
-                </p>
-                <div className="mt-1 flex flex-wrap gap-1 empty:hidden">
-                  {sale.sync_state === 'rejected' ? (
-                    <Tag tone="danger">Not accepted</Tag>
-                  ) : (
-                    data.waiting.has(sale.id) && <Tag tone="warning">Waiting to sync</Tag>
-                  )}
-                  {sale.status === 'voided' && <Tag tone="danger">Voided</Tag>}
-                </div>
-              </div>
-              <p
-                className={`money shrink-0 font-semibold ${sale.status === 'voided' || sale.sync_state === 'rejected' ? 'text-text-muted line-through' : 'text-text'}`}
-              >
-                {formatMoney(sale.amount)}
-              </p>
-            </li>
+          {sales.map((sale) => (
+            <SaleRow key={sale.id} sale={sale} lookups={lookups} account={account} />
           ))}
         </ul>
       )}

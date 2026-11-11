@@ -55,6 +55,12 @@ export class WashNowDB extends Dexie {
       accounts: 'user_id, phone',
       meta: 'key',
     })
+
+    // Version 2: lets the owner's screens find sales with a void request
+    // waiting without reading every sale.
+    this.version(2).stores({
+      sales: 'id, sold_at, customer_id, plate_number, void_requested_at',
+    })
   }
 }
 

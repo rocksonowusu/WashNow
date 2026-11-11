@@ -64,6 +64,10 @@ export type Sale = InBranch & {
   status: SaleStatus
   void_reason: string | null
   override_reason: string | null
+  /** A cashier's request for the owner to void this sale. Cleared if declined. */
+  void_requested_by?: string | null
+  void_request_reason?: string | null
+  void_requested_at?: string | null
   /** Only on sales made on this device that the server has not sent back yet. */
   washer_ids?: string[]
   /** Set when the server refused this record; it needs the owner's attention. */

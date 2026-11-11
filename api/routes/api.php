@@ -44,6 +44,7 @@ Route::middleware(['auth:sanctum', 'role:owner,cashier'])->group(function () {
     Route::get('/sales', [SaleController::class, 'index']);
     Route::post('/sales', [SaleController::class, 'store']);
     Route::get('/sales/{id}', [SaleController::class, 'show']);
+    Route::post('/sales/{id}/void-request', [SaleController::class, 'requestVoid']);
 
     Route::get('/expenses', [ExpenseController::class, 'index']);
     Route::post('/expenses', [ExpenseController::class, 'store']);
@@ -67,6 +68,7 @@ Route::middleware(['auth:sanctum', 'role:owner,cashier'])->group(function () {
 
         Route::put('/sales/{id}', [SaleController::class, 'update']);
         Route::post('/sales/{id}/void', [SaleController::class, 'void']);
+        Route::delete('/sales/{id}/void-request', [SaleController::class, 'declineVoid']);
 
         Route::put('/expenses/{id}', [ExpenseController::class, 'update']);
         Route::delete('/expenses/{id}', [ExpenseController::class, 'destroy']);

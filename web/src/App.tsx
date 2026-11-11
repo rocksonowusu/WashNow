@@ -3,8 +3,11 @@ import { Navigate, Route, Routes } from 'react-router'
 import { useAuth } from './auth/AuthContext.tsx'
 import AppShell from './components/AppShell.tsx'
 import CrewPage from './pages/CrewPage.tsx'
+import CustomersPage from './pages/CustomersPage.tsx'
 import DashboardPage from './pages/DashboardPage.tsx'
+import ExpensesPage from './pages/ExpensesPage.tsx'
 import LoginPage from './pages/LoginPage.tsx'
+import MorePage from './pages/MorePage.tsx'
 import NewSalePage from './pages/NewSalePage.tsx'
 import SyncPage from './pages/SyncPage.tsx'
 import TodayPage from './pages/TodayPage.tsx'
@@ -52,7 +55,10 @@ export default function App() {
         <Route path="/" element={<DashboardPage />} />
         <Route path="/new-sale" element={<NewSalePage />} />
         <Route path="/today" element={<TodayPage />} />
+        <Route path="/expenses" element={<ExpensesPage />} />
+        <Route path="/customers" element={<CustomersPage />} />
         <Route path="/crew" element={<CrewPage />} />
+        <Route path="/more" element={<MorePage />} />
         <Route path="/sync" element={<SyncPage />} />
       </Route>
 

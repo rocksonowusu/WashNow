@@ -361,3 +361,101 @@ export async function removeCrewMember(account: Account, id: string): Promise<vo
 
   syncService.requestSoon()
 }
+
+// ---------------------------------------------------------------------------
+// Voids. A cashier can only ask; the owner voids (approves) or declines.
+// ---------------------------------------------------------------------------
+
+function cleanReason(reason: string): string {
+  const clean = reason.trim()
+  if (clean.length < 3) {
+    throw new LocalValidationError('reason', 'Say why, in a few words.')
+  }
+  return clean
+}
+
+async function activeSale(saleId: string): Promise<Sale> {
+  const sale = await db.sales.get(saleId)
+  if (!sale) throw new LocalValidationError('form', 'This sale is no longer on this device.')
+  if (sale.status === 'voided') throw new LocalValidationError('form', 'This sale has already been voided.')
+  return sale
+}
+
+async function saveSaleChange(account: Account, sale: Sale, record: OutboxItem['record']): Promise<void> {
+  await db.transaction('rw', db.sales, db.outbox, async () => {
+    await db.sales.put(sale)
+    await db.outbox.add(outboxItem(account, 'sales', record))
+  })
+
+  syncService.requestSoon()
+}
+
+/** Ask the owner to void a sale. Nothing about its money changes yet. */
+export async function requestVoid(account: Account, saleId: string, reason: string): Promise<Sale> {
+  const cleanedReason = cleanReason(reason)
+  const sale = await activeSale(saleId)
+
+  // Someone already asked: keep the first request.
+  if (sale.void_requested_at) return sale
+
+  const now = new Date().toISOString()
+  const updated: Sale = {
+    ...sale,
+    void_requested_by: account.user_id,
+    void_request_reason: cleanedReason,
+    void_requested_at: now,
+    version: sale.version + 1,
+    updated_at: now,
+  }
+
+  await saveSaleChange(account, updated, { id: sale.id, void_request_reason: cleanedReason, version: updated.version })
+  return updated
+}
+
+/** Owner only: void a sale, whether or not a cashier asked. */
+export async function voidSale(account: Account, saleId: string, reason: string): Promise<Sale> {
+  if (account.role !== 'owner') {
+    throw new LocalValidationError('form', 'Only the owner can void a sale.')
+  }
+
+  const cleanedReason = cleanReason(reason)
+  const sale = await activeSale(saleId)
+
+  const updated: Sale = {
+    ...sale,
+    status: 'voided',
+    void_reason: cleanedReason,
+    version: sale.version + 1,
+    updated_at: new Date().toISOString(),
+  }
+
+  await saveSaleChange(account, updated, {
+    id: sale.id,
+    status: 'voided',
+    void_reason: cleanedReason,
+    version: updated.version,
+  })
+  return updated
+}
+
+/** Owner only: say no to a void request. The sale stays as it is. */
+export async function declineVoidRequest(account: Account, saleId: string): Promise<Sale> {
+  if (account.role !== 'owner') {
+    throw new LocalValidationError('form', 'Only the owner can answer a void request.')
+  }
+
+  const sale = await activeSale(saleId)
+  if (!sale.void_requested_at) return sale
+
+  const updated: Sale = {
+    ...sale,
+    void_requested_by: null,
+    void_request_reason: null,
+    void_requested_at: null,
+    version: sale.version + 1,
+    updated_at: new Date().toISOString(),
+  }
+
+  await saveSaleChange(account, updated, { id: sale.id, void_request_declined: true, version: updated.version })
+  return updated
+}

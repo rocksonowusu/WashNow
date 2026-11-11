@@ -204,6 +204,48 @@ class SaleService
     }
 
     /**
+     * A cashier asks for a sale to be voided. Nothing about the sale's money
+     * changes until the owner approves. Asking again while a request is
+     * already waiting keeps the first one.
+     *
+     * @throws ValidationException
+     */
+    public function requestVoid(User $user, Sale $sale, string $reason): Sale
+    {
+        if ($sale->isVoided()) {
+            $this->fail('reason', 'This sale has already been voided.');
+        }
+
+        DayLock::ensureOpen($sale->branch_id, $sale->sold_at, 'reason');
+
+        if (! $sale->hasVoidRequest()) {
+            $sale->forceFill([
+                'void_requested_by' => $user->id,
+                'void_request_reason' => $reason,
+                'void_requested_at' => now(),
+            ])->save();
+        }
+
+        return $sale->load('saleWashers');
+    }
+
+    /**
+     * The owner says no: the sale stays as it is and the request is cleared.
+     */
+    public function declineVoid(Sale $sale): Sale
+    {
+        if ($sale->hasVoidRequest()) {
+            $sale->forceFill([
+                'void_requested_by' => null,
+                'void_request_reason' => null,
+                'void_requested_at' => null,
+            ])->save();
+        }
+
+        return $sale->load('saleWashers');
+    }
+
+    /**
      * The sale is shared equally between its washers, and each washer earns
      * their own percentage of their share. The percentage is copied onto the
      * sale so later changes to a washer's rate never alter past pay.

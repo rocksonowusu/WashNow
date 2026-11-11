@@ -50,6 +50,36 @@ class SaleHandler extends SyncHandler
             return;
         }
 
+        // The owner declined a cashier's request to void.
+        if (($record['void_request_declined'] ?? false) === true) {
+            if ($sale->hasVoidRequest()) {
+                $this->ownerOnly($user, 'Only the owner can answer a void request.');
+
+                $sale->version = max($this->incomingVersion($record), $sale->version + 1);
+                $this->sales->declineVoid($sale);
+            }
+
+            return;
+        }
+
+        // A cashier asking for a void. Anyone may ask; it changes no money.
+        if (! empty($record['void_request_reason'])) {
+            if ($sale->isVoided()) {
+                return; // already voided, so the request has been overtaken
+            }
+
+            if (! $sale->hasVoidRequest()) {
+                $reason = Validator::make($record, [
+                    'void_request_reason' => ['required', 'string', 'min:3', 'max:255'],
+                ])->validate()['void_request_reason'];
+
+                $sale->version = max($this->incomingVersion($record), $sale->version + 1);
+                $this->sales->requestVoid($user, $sale, $reason);
+            }
+
+            return;
+        }
+
         $changes = Validator::make($record, SaleService::rules(creating: false))->validate();
         $changes = Arr::only($changes, SaleService::EDITABLE);
 

@@ -108,7 +108,7 @@ export function Card({
   className?: string
 }) {
   return (
-    <section className={`overflow-hidden rounded-card border border-border bg-surface ${className}`}>
+    <section className={`overflow-clip rounded-card border border-border bg-surface ${className}`}>
       {title && (
         <div className="flex min-h-12 items-center justify-between gap-3 border-b border-border bg-surface-alt px-4 py-2">
           <h2 className="text-base text-text">{title}</h2>

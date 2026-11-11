@@ -1,20 +1,11 @@
-import { CirclePlus, ClipboardList, LayoutDashboard, Lock, RefreshCw, UsersRound, type LucideIcon } from 'lucide-react'
+import { Ellipsis, Lock } from 'lucide-react'
 import { NavLink, Outlet, useLocation } from 'react-router'
 import { useAuth } from '../auth/AuthContext.tsx'
+import { usePendingVoidRequests } from '../lib/usePendingVoidRequests.ts'
 import CornerArt from './CornerArt.tsx'
 import SyncBadge from './SyncBadge.tsx'
+import { DESTINATIONS, MORE, PHONE_TABS } from './destinations.ts'
 import { ICON } from './icon.ts'
-
-type Destination = { to: string; label: string; icon: LucideIcon }
-
-/** Every screen in the app. Later stages add to this list. */
-const DESTINATIONS: Destination[] = [
-  { to: '/', label: 'Dashboard', icon: LayoutDashboard },
-  { to: '/new-sale', label: 'New sale', icon: CirclePlus },
-  { to: '/today', label: 'Today', icon: ClipboardList },
-  { to: '/crew', label: 'Crew', icon: UsersRound },
-  { to: '/sync', label: 'Sync', icon: RefreshCw },
-]
 
 const onBlueFocus = 'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-surface'
 
@@ -29,7 +20,14 @@ export default function AppShell() {
   const { account, lock } = useAuth()
   const { pathname } = useLocation()
 
-  const current = DESTINATIONS.find((destination) => destination.to === pathname) ?? DESTINATIONS[0]
+  const current = [...DESTINATIONS, MORE].find((destination) => destination.to === pathname) ?? DESTINATIONS[0]
+
+  // On phones, screens without their own tab live under "More".
+  const underMore = pathname === MORE.to || !PHONE_TABS.some((tab) => tab.to === pathname)
+
+  // The owner sees a count on Today when cashiers are waiting for an answer.
+  const pendingRequests = usePendingVoidRequests()
+  const toAnswer = account?.role === 'owner' ? (pendingRequests?.length ?? 0) : 0
 
   return (
     <div className="min-h-screen lg:grid lg:grid-cols-[16rem_minmax(0,1fr)]">
@@ -53,7 +51,12 @@ export default function AppShell() {
               }
             >
               <Icon {...ICON} className="shrink-0" />
-              {label}
+              <span className="flex-1">{label}</span>
+              {to === '/today' && toAnswer > 0 && (
+                <span className="money rounded-control bg-danger px-2 text-sm text-surface" aria-label={`${toAnswer} void requests to answer`}>
+                  {toAnswer}
+                </span>
+              )}
             </NavLink>
           ))}
         </nav>
@@ -109,29 +112,41 @@ export default function AppShell() {
       <nav
         aria-label="Main"
         className="fixed inset-x-0 bottom-0 z-10 grid border-t border-border bg-surface lg:hidden"
-        style={{ gridTemplateColumns: `repeat(${DESTINATIONS.length}, minmax(0, 1fr))` }}
+        style={{ gridTemplateColumns: `repeat(${PHONE_TABS.length + 1}, minmax(0, 1fr))` }}
       >
-        {DESTINATIONS.map(({ to, label, icon: Icon }) => (
-          <NavLink
-            key={to}
-            to={to}
-            end
-            className={({ isActive }) =>
-              `flex min-h-16 flex-col items-center justify-center gap-0.5 text-xs font-semibold focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent ${
-                isActive ? 'text-accent' : 'text-text-muted'
-              }`
-            }
-          >
-            {({ isActive }) => (
-              <>
-                <span className={`flex h-8 w-14 items-center justify-center rounded-control ${isActive ? 'bg-accent text-surface' : ''}`}>
-                  <Icon {...ICON} />
-                </span>
-                {label}
-              </>
-            )}
-          </NavLink>
-        ))}
+        {[...PHONE_TABS, { ...MORE, icon: Ellipsis }].map(({ to, label, tabLabel, icon: Icon }) => {
+          const isMore = to === MORE.to
+          return (
+            <NavLink
+              key={to}
+              to={to}
+              end
+              className={({ isActive }) =>
+                `flex min-h-16 flex-col items-center justify-center gap-0.5 text-xs font-semibold focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent ${
+                  (isMore ? underMore : isActive) ? 'text-accent' : 'text-text-muted'
+                }`
+              }
+            >
+              {({ isActive }) => (
+                <>
+                  <span
+                    className={`relative flex h-8 w-14 items-center justify-center rounded-control ${
+                      (isMore ? underMore : isActive) ? 'bg-accent text-surface' : ''
+                    }`}
+                  >
+                    <Icon {...ICON} />
+                    {to === '/today' && toAnswer > 0 && (
+                      <span className="money absolute -top-1 right-0 rounded-control bg-danger px-1.5 text-xs text-surface" aria-label={`${toAnswer} void requests to answer`}>
+                        {toAnswer}
+                      </span>
+                    )}
+                  </span>
+                  {tabLabel ?? label}
+                </>
+              )}
+            </NavLink>
+          )
+        })}
       </nav>
     </div>
   )

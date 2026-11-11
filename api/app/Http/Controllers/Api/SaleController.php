@@ -89,6 +89,29 @@ class SaleController extends Controller
         return response()->json(['data' => $this->sales->void($this->find($request, $id), $data['reason'])]);
     }
 
+    /**
+     * Cashier or owner: ask for a sale to be voided. The owner then voids it
+     * (approve) or declines.
+     */
+    public function requestVoid(Request $request, string $id): JsonResponse
+    {
+        $data = $request->validate([
+            'reason' => ['required', 'string', 'min:3', 'max:255'],
+        ]);
+
+        $sale = $this->sales->requestVoid($request->user(), $this->find($request, $id), $data['reason']);
+
+        return response()->json(['data' => $sale]);
+    }
+
+    /**
+     * Owner only: turn down a void request. The sale stays as it is.
+     */
+    public function declineVoid(Request $request, string $id): JsonResponse
+    {
+        return response()->json(['data' => $this->sales->declineVoid($this->find($request, $id))]);
+    }
+
     private function find(Request $request, string $id): Sale
     {
         return Sale::query()

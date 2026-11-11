@@ -33,7 +33,17 @@ class Sale extends Model
             'payment_method' => PaymentMethod::class,
             'status' => SaleStatus::class,
             'sold_at' => 'datetime',
+            'void_requested_at' => 'datetime',
         ];
+    }
+
+    /**
+     * A cashier has asked for this sale to be voided and the owner has not
+     * answered yet.
+     */
+    public function hasVoidRequest(): bool
+    {
+        return $this->void_requested_at !== null && ! $this->isVoided();
     }
 
     /**

@@ -1,5 +1,11 @@
 import TodaySales from '../components/TodaySales.tsx'
+import VoidRequests from '../components/VoidRequests.tsx'
 
 export default function TodayPage() {
-  return <TodaySales />
+  return (
+    <div className="space-y-5">
+      <VoidRequests />
+      <TodaySales />
+    </div>
+  )
 }
