@@ -1,7 +1,7 @@
 import { ChevronRight, Lock } from 'lucide-react'
 import { Link } from 'react-router'
 import { useAuth } from '../auth/AuthContext.tsx'
-import { UNDER_MORE } from '../components/destinations.ts'
+import { destinationsFor } from '../components/destinations.ts'
 import { ICON } from '../components/icon.ts'
 import { focusRing } from '../components/styles.ts'
 import { Button, Card } from '../components/ui.tsx'
@@ -17,7 +17,9 @@ export default function MorePage() {
     <div className="space-y-5">
       <Card>
         <ul>
-          {UNDER_MORE.map(({ to, label, about, icon: Icon }) => (
+          {destinationsFor(account?.role)
+            .filter((destination) => !destination.phoneTab)
+            .map(({ to, label, about, icon: Icon }) => (
             <li key={to} className="border-b border-border last:border-b-0">
               <Link to={to} className={`flex min-h-16 items-center gap-3 px-4 py-3 hover:bg-surface-alt ${focusRing}`}>
                 <span className="flex size-11 shrink-0 items-center justify-center rounded-control bg-accent-tint text-accent">

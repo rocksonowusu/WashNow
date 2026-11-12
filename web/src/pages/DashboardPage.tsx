@@ -2,6 +2,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { ArrowRight, Banknote, CarFront, CirclePlus, HandCoins, PiggyBank, Receipt, Smartphone, Wallet } from 'lucide-react'
 import { Link } from 'react-router'
 import { useAuth } from '../auth/AuthContext.tsx'
+import { HorizontalBars, SplitBar } from '../components/charts.tsx'
 import { ICON } from '../components/icon.ts'
 import { tableHead } from '../components/styles.ts'
 import { Card, StatTile, Tag } from '../components/ui.tsx'
@@ -19,9 +20,11 @@ export default function DashboardPage() {
 
   const data = useLiveQuery(async () => {
     const { start, end } = todayRange()
+    const yesterday = todayRange(new Date(Date.now() - 24 * 60 * 60 * 1000))
 
-    const [sales, expenses, categories, washers, outbox] = await Promise.all([
+    const [sales, yesterdaySales, expenses, categories, washers, outbox] = await Promise.all([
       db.sales.where('sold_at').between(start, end, true, false).reverse().sortBy('sold_at'),
+      db.sales.where('sold_at').between(yesterday.start, yesterday.end, true, false).toArray(),
       db.expenses.where('spent_at').between(start, end, true, false).toArray(),
       db.vehicle_categories.orderBy('sort_order').toArray(),
       db.washers.toArray(),
@@ -35,7 +38,11 @@ export default function DashboardPage() {
       .anyOf(counted.map((sale) => sale.id))
       .toArray()
 
-    return { sales, counted, expenses, categories, washers, commissions, waiting: new Set(outbox.map((item) => item.record_id)) }
+    const yesterdayTotal = yesterdaySales
+      .filter((sale) => sale.status === 'active' && sale.sync_state !== 'rejected')
+      .reduce((sum, sale) => sum + sale.amount, 0)
+
+    return { sales, counted, yesterdayTotal, expenses, categories, washers, commissions, waiting: new Set(outbox.map((item) => item.record_id)) }
   }, [])
 
   if (!data) return null
@@ -69,6 +76,14 @@ export default function DashboardPage() {
   const categoryNames = new Map(data.categories.map((category) => [category.id, category.name]))
   const recent = data.sales.slice(0, 5)
 
+  // Cashier devices only hold today, so only the owner gets a comparison.
+  const change = total - data.yesterdayTotal
+  const versusYesterday = !isOwner
+    ? undefined
+    : change === 0
+      ? `Same as yesterday (${formatMoney(data.yesterdayTotal)})`
+      : `${change > 0 ? 'Up' : 'Down'} ${formatMoney(Math.abs(change))} on yesterday (${formatMoney(data.yesterdayTotal)})`
+
   return (
     <div className="space-y-5">
       <Link
@@ -82,7 +97,7 @@ export default function DashboardPage() {
       <VoidRequests />
 
       <section aria-label="Sales today" className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <StatTile strong icon={Wallet} label="Total sales today" value={formatMoney(total)} />
+        <StatTile strong icon={Wallet} label="Total sales today" value={formatMoney(total)} note={versusYesterday} />
         <StatTile colour="aqua" icon={CarFront} label="Vehicles washed" value={data.counted.length} />
         <StatTile colour="success" icon={Banknote} label="Cash" value={formatMoney(cash)} />
         <StatTile icon={Smartphone} label="MoMo" value={formatMoney(total - cash)} />
@@ -111,28 +126,19 @@ export default function DashboardPage() {
       )}
 
       <div className="grid items-start gap-5 lg:grid-cols-2">
-        <Card title="By vehicle">
+        <Card title="Sales by vehicle">
           {byCategory.length === 0 ? (
             <p className="px-4 py-4 text-text-muted">No sales recorded today yet.</p>
           ) : (
-            <table className="w-full">
-              <thead>
-                <tr className={tableHead}>
-                  <th scope="col" className="px-4 py-2 font-semibold">Vehicle</th>
-                  <th scope="col" className="px-4 py-2 text-right font-semibold">Washed</th>
-                  <th scope="col" className="px-4 py-2 text-right font-semibold">Sales</th>
-                </tr>
-              </thead>
-              <tbody>
-                {byCategory.map((row) => (
-                  <tr key={row.id} className="border-t border-border">
-                    <td className="px-4 py-3 font-semibold text-text">{row.name}</td>
-                    <td className="money px-4 py-3 text-right text-text">{row.cars}</td>
-                    <td className="money px-4 py-3 text-right font-semibold text-text">{formatMoney(row.amount)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <div className="px-2 py-3">
+              <HorizontalBars label="Sales" rows={byCategory.map((row) => ({ name: `${row.name} (${row.cars})`, value: row.amount }))} />
+            </div>
+          )}
+          {total > 0 && (
+            <div className="border-t border-border px-4 py-4">
+              <p className="mb-2 text-sm font-semibold text-text">Cash and MoMo</p>
+              <SplitBar parts={[{ name: 'Cash', value: cash }, { name: 'MoMo', value: total - cash }]} />
+            </div>
           )}
         </Card>
 

@@ -28,6 +28,36 @@ type Options = {
   timeoutMs?: number
 }
 
+/**
+ * Fetch a file (a report export) and hand it to the browser to save. The
+ * token goes in a header, so this cannot be a plain link.
+ */
+export async function downloadFile(path: string, token: string | null, fileName: string): Promise<void> {
+  let response: Response
+  try {
+    response = await fetch(`${API_URL}/api${path}`, {
+      headers: { Accept: 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      signal: AbortSignal.timeout(60_000),
+    })
+  } catch {
+    throw new NetworkError()
+  }
+
+  if (!response.ok) {
+    const details = ((await response.json().catch(() => null)) ?? {}) as { message?: string }
+    throw new ApiError(response.status, details.message ?? `The server answered with status ${response.status}.`)
+  }
+
+  const url = URL.createObjectURL(await response.blob())
+  const link = document.createElement('a')
+  link.href = url
+  link.download = fileName
+  document.body.append(link)
+  link.click()
+  link.remove()
+  URL.revokeObjectURL(url)
+}
+
 export async function api<T>(path: string, options: Options = {}): Promise<T> {
   const { method = 'GET', body, token, timeoutMs = 20_000 } = options
 

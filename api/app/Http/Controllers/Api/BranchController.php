@@ -27,6 +27,8 @@ class BranchController extends Controller
             'location' => ['sometimes', 'nullable', 'string', 'max:255'],
             'phone' => ['sometimes', 'nullable', 'string', 'max:20'],
             'default_commission_percent' => ['sometimes', 'nullable', 'numeric', 'min:0', 'max:100', 'decimal:0,2'],
+            // Every Nth wash is a loyalty wash; null turns the rule off.
+            'loyalty_every_visits' => ['sometimes', 'nullable', 'integer', 'min:2', 'max:100'],
         ]);
 
         $branch = $request->user()->branch;

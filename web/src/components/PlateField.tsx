@@ -1,5 +1,5 @@
 import { useLiveQuery } from 'dexie-react-hooks'
-import { UserRoundCheck } from 'lucide-react'
+import { Gift, UserRoundCheck } from 'lucide-react'
 import { db } from '../db/db.ts'
 import { normalisePlate } from '../lib/format.ts'
 import { ICON } from './icon.ts'
@@ -43,6 +43,11 @@ export default function PlateField({ value, onChange, saveAsCustomer, onSaveAsCu
   const known = matches?.find((customer) => customer.plate_number === plate) ?? null
   const suggestions = (matches ?? []).filter((customer) => customer.id !== known?.id)
 
+  // The owner's loyalty rule: every Nth wash by a saved customer is flagged.
+  const every = useLiveQuery(async () => (await db.branches.toCollection().first())?.loyalty_every_visits ?? null, [])
+  const thisVisit = known ? known.visit_count + 1 : 0
+  const loyaltyDue = Boolean(every) && known !== null && thisVisit % (every as number) === 0
+
   return (
     <div>
       <Field
@@ -64,6 +69,13 @@ export default function PlateField({ value, onChange, saveAsCustomer, onSaveAsCu
               {' '}· {known.visit_count === 1 ? '1 visit' : `${known.visit_count} visits`}
             </span>
           </span>
+        </p>
+      )}
+
+      {loyaltyDue && (
+        <p className="mt-2 flex items-center gap-2 rounded-control bg-accent px-3 py-2 font-semibold text-surface">
+          <Gift {...ICON} className="shrink-0" />
+          Loyalty wash: this is visit {thisVisit}. Give the reward the owner has set.
         </p>
       )}
 

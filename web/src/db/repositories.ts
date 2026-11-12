@@ -11,6 +11,7 @@ import type {
   PaymentMethod,
   PushTable,
   Sale,
+  VehicleCategory,
   Washer,
 } from './types.ts'
 
@@ -458,4 +459,126 @@ export async function declineVoidRequest(account: Account, saleId: string): Prom
 
   await saveSaleChange(account, updated, { id: sale.id, void_request_declined: true, version: updated.version })
   return updated
+}
+
+// ---------------------------------------------------------------------------
+// Vehicle types and their price ranges. Owner only; the server wins if the
+// owner's device was out of date.
+// ---------------------------------------------------------------------------
+
+export type VehicleTypeInput = {
+  name: string
+  /** Whole pesewas. */
+  minPrice: number
+  maxPrice: number
+  pricingNote?: string | null
+}
+
+function ownerOnly(account: Account, what: string): void {
+  if (account.role !== 'owner') {
+    throw new LocalValidationError('form', `Only the owner can ${what}.`)
+  }
+}
+
+async function checkVehicleType(input: VehicleTypeInput, exceptId?: string): Promise<string> {
+  const name = cleanName(input.name)
+  if (name === '') throw new LocalValidationError('name', 'Enter a name, for example Sedan.')
+
+  const clash = (await db.vehicle_categories.toArray()).find(
+    (category) => category.id !== exceptId && category.name.toLowerCase() === name.toLowerCase(),
+  )
+  if (clash) throw new LocalValidationError('name', `${clash.name} is already on the list.`)
+
+  if (!Number.isInteger(input.minPrice) || input.minPrice < 0) {
+    throw new LocalValidationError('minPrice', 'Enter the lowest price.')
+  }
+  if (!Number.isInteger(input.maxPrice) || input.maxPrice < input.minPrice) {
+    throw new LocalValidationError('maxPrice', 'The highest price cannot be lower than the lowest price.')
+  }
+
+  return name
+}
+
+export async function createVehicleType(account: Account, input: VehicleTypeInput): Promise<VehicleCategory> {
+  ownerOnly(account, 'add a vehicle type')
+  const name = await checkVehicleType(input)
+
+  const last = (await db.vehicle_categories.toArray()).reduce((highest, category) => Math.max(highest, category.sort_order), 0)
+
+  const category: VehicleCategory = {
+    ...fresh(account),
+    name,
+    min_price: input.minPrice,
+    max_price: input.maxPrice,
+    pricing_note: input.pricingNote?.trim() || null,
+    sort_order: last + 1,
+    active: true,
+  }
+
+  await db.transaction('rw', db.vehicle_categories, db.outbox, async () => {
+    await db.vehicle_categories.add(category)
+    await db.outbox.add(
+      outboxItem(account, 'vehicle_categories', {
+        id: category.id,
+        name: category.name,
+        min_price: category.min_price,
+        max_price: category.max_price,
+        pricing_note: category.pricing_note,
+        sort_order: category.sort_order,
+        active: true,
+        version: category.version,
+      }),
+    )
+  })
+
+  syncService.requestSoon()
+  return category
+}
+
+export async function updateVehicleType(account: Account, id: string, input: VehicleTypeInput): Promise<VehicleCategory> {
+  ownerOnly(account, 'change a vehicle type')
+
+  const category = await db.vehicle_categories.get(id)
+  if (!category) throw new LocalValidationError('form', 'This vehicle type is no longer on the list.')
+
+  const name = await checkVehicleType(input, id)
+
+  const updated: VehicleCategory = {
+    ...category,
+    name,
+    min_price: input.minPrice,
+    max_price: input.maxPrice,
+    pricing_note: input.pricingNote?.trim() || null,
+    version: category.version + 1,
+    updated_at: new Date().toISOString(),
+  }
+
+  await db.transaction('rw', db.vehicle_categories, db.outbox, async () => {
+    await db.vehicle_categories.put(updated)
+    await db.outbox.add(
+      outboxItem(account, 'vehicle_categories', {
+        id,
+        name: updated.name,
+        min_price: updated.min_price,
+        max_price: updated.max_price,
+        pricing_note: updated.pricing_note,
+        version: updated.version,
+      }),
+    )
+  })
+
+  syncService.requestSoon()
+  return updated
+}
+
+/** Past sales keep the vehicle type's name; it just leaves the list. */
+export async function removeVehicleType(account: Account, id: string): Promise<void> {
+  ownerOnly(account, 'remove a vehicle type')
+
+  await db.transaction('rw', db.vehicle_categories, db.outbox, async () => {
+    await db.vehicle_categories.delete(id)
+    await db.outbox.add(outboxItem(account, 'vehicle_categories', { id }, 'delete'))
+  })
+
+  syncService.requestSoon()
 }

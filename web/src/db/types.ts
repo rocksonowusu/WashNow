@@ -22,6 +22,8 @@ export type Branch = Synced & {
   phone: string | null
   /** The rate new crew start on, e.g. "30.00". Null until the owner sets it. */
   default_commission_percent: string | null
+  /** Every Nth wash is a loyalty wash. Null means no loyalty rule. */
+  loyalty_every_visits?: number | null
 }
 
 export type User = InBranch & { name: string; phone: string; role: Role; active: boolean }

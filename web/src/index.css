@@ -28,6 +28,8 @@
   --color-sun-tint: #fcf1d2;
   --color-success-tint: #dcefe3;
   --color-danger-tint: #f7e1df;
+  /* Second series in charts. Checked against accent for colour-blind separation. */
+  --color-chart-2: #0e9aa7;
 
   --font-*: initial;
   /* Bundled with the app (see main.tsx) so they also load with no internet. */

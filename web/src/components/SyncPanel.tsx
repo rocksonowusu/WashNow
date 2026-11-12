@@ -1,8 +1,6 @@
-import { useLiveQuery } from 'dexie-react-hooks'
 import { LogOut, RefreshCw } from 'lucide-react'
 import { useState } from 'react'
 import { useAuth } from '../auth/AuthContext.tsx'
-import { db } from '../db/db.ts'
 import { formatDateTime } from '../lib/format.ts'
 import { syncService } from '../sync/SyncService.ts'
 import { useSync } from '../sync/useSync.ts'
@@ -16,7 +14,6 @@ import { Button, Card } from './ui.tsx'
 export default function SyncPanel() {
   const { account, signOut } = useAuth()
   const sync = useSync()
-  const issues = useLiveQuery(() => db.sync_issues.orderBy('seq').reverse().limit(5).toArray(), [])
 
   const [signOutError, setSignOutError] = useState<string | null>(null)
 
@@ -60,22 +57,6 @@ export default function SyncPanel() {
           Sync now
         </Button>
       </div>
-
-      {issues && issues.length > 0 && (
-        <div className="border-t border-border px-4 py-4">
-          <h3 className="font-heading font-semibold text-danger">
-            {sync.issues === 1 ? '1 record needs the owner’s review' : `${sync.issues} records need the owner’s review`}
-          </h3>
-          <ul className="mt-2 space-y-2">
-            {issues.map((issue) => (
-              <li key={issue.seq} className="text-sm">
-                <p className="text-text">{issue.message}</p>
-                <p className="text-text-muted">{formatDateTime(issue.at)}</p>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
 
       {account && (
         <div className="border-t border-border px-4 py-4">

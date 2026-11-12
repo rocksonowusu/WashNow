@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\BranchController;
 use App\Http\Controllers\Api\CustomerController;
 use App\Http\Controllers\Api\DayClosingController;
 use App\Http\Controllers\Api\ExpenseController;
+use App\Http\Controllers\Api\ReportController;
 use App\Http\Controllers\Api\SaleController;
 use App\Http\Controllers\Api\SyncController;
 use App\Http\Controllers\Api\UserController;
@@ -82,5 +83,8 @@ Route::middleware(['auth:sanctum', 'role:owner,cashier'])->group(function () {
         Route::put('/users/{id}', [UserController::class, 'update']);
 
         Route::get('/audit-logs', [AuditLogController::class, 'index']);
+
+        Route::get('/reports/summary', [ReportController::class, 'summary']);
+        Route::get('/reports/export', [ReportController::class, 'export']);
     });
 });

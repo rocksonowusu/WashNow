@@ -4,7 +4,7 @@ import { useAuth } from '../auth/AuthContext.tsx'
 import { usePendingVoidRequests } from '../lib/usePendingVoidRequests.ts'
 import CornerArt from './CornerArt.tsx'
 import SyncBadge from './SyncBadge.tsx'
-import { DESTINATIONS, MORE, PHONE_TABS } from './destinations.ts'
+import { DESTINATIONS, destinationsFor, MORE, PHONE_TABS } from './destinations.ts'
 import { ICON } from './icon.ts'
 
 const onBlueFocus = 'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-surface'
@@ -39,7 +39,7 @@ export default function AppShell() {
           <img src="/brand/washnow-logo-white.svg" alt="WashNow" className="h-10 w-auto" />        </div>
 
         <nav aria-label="Main" className="relative flex-1 space-y-1 overflow-y-auto px-3 py-2">
-          {DESTINATIONS.map(({ to, label, icon: Icon }) => (
+          {destinationsFor(account?.role).map(({ to, label, icon: Icon }) => (
             <NavLink
               key={to}
               to={to}

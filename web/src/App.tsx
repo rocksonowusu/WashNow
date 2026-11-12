@@ -5,10 +5,13 @@ import AppShell from './components/AppShell.tsx'
 import CrewPage from './pages/CrewPage.tsx'
 import CustomersPage from './pages/CustomersPage.tsx'
 import DashboardPage from './pages/DashboardPage.tsx'
+import DayClosePage from './pages/DayClosePage.tsx'
 import ExpensesPage from './pages/ExpensesPage.tsx'
 import LoginPage from './pages/LoginPage.tsx'
 import MorePage from './pages/MorePage.tsx'
 import NewSalePage from './pages/NewSalePage.tsx'
+import ReportsPage from './pages/ReportsPage.tsx'
+import SettingsPage from './pages/SettingsPage.tsx'
 import SyncPage from './pages/SyncPage.tsx'
 import TodayPage from './pages/TodayPage.tsx'
 import UnlockPage from './pages/UnlockPage.tsx'
@@ -38,6 +41,12 @@ function RequireAccount({ children }: { children: ReactNode }) {
   return children
 }
 
+/** Screens a cashier must never open, even by typing the address. */
+function OwnerOnly({ children }: { children: ReactNode }) {
+  const { account } = useAuth()
+  return account?.role === 'owner' ? children : <Navigate to="/" replace />
+}
+
 export default function App() {
   return (
     <Routes>
@@ -59,6 +68,9 @@ export default function App() {
         <Route path="/customers" element={<CustomersPage />} />
         <Route path="/crew" element={<CrewPage />} />
         <Route path="/more" element={<MorePage />} />
+        <Route path="/reports" element={<OwnerOnly><ReportsPage /></OwnerOnly>} />
+        <Route path="/day-close" element={<OwnerOnly><DayClosePage /></OwnerOnly>} />
+        <Route path="/settings" element={<OwnerOnly><SettingsPage /></OwnerOnly>} />
         <Route path="/sync" element={<SyncPage />} />
       </Route>
 

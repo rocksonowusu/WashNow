@@ -13,7 +13,7 @@ class Branch extends Model
     /** @use HasFactory<BranchFactory> */
     use HasFactory, HasUuidSync;
 
-    protected $fillable = ['id', 'name', 'location', 'phone', 'default_commission_percent'];
+    protected $fillable = ['id', 'name', 'location', 'phone', 'default_commission_percent', 'loyalty_every_visits'];
 
     /**
      * @return array<string, string>
@@ -22,6 +22,7 @@ class Branch extends Model
     {
         return [
             'default_commission_percent' => 'decimal:2',
+            'loyalty_every_visits' => 'integer',
         ];
     }
 
