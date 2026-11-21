@@ -8,9 +8,9 @@ type ServerSelf = {
   name: string
   phone: string
   role: Role
-  is_admin?: boolean
-  branch_id: string
-  branch?: { id: string; name: string }
+  /** Null for the WashNow admin. */
+  branch_id: string | null
+  branch?: { id: string; name: string } | null
 }
 
 type LoginReply = { token: string; user: ServerSelf }
@@ -33,8 +33,10 @@ export async function signInOnline(phone: string, pin: string): Promise<Account>
   })
 
   // One device serves one bay. Signing in to a different bay starts clean.
+  // The admin belongs to no bay; their device keeps no bay's records.
+  const branchId = reply.user.branch_id ?? ''
   const savedBranch = await getMeta<string>('branchId')
-  if (savedBranch && savedBranch !== reply.user.branch_id) {
+  if (savedBranch && savedBranch !== branchId) {
     if ((await db.outbox.count()) > 0) {
       await api('/auth/logout', { method: 'POST', token: reply.token }).catch(() => undefined)
       throw new Error('This device still has records waiting to sync for another bay. Sync them before switching.')
@@ -56,9 +58,8 @@ export async function signInOnline(phone: string, pin: string): Promise<Account>
     name: reply.user.name,
     phone: reply.user.phone,
     role: reply.user.role,
-    branch_id: reply.user.branch_id,
+    branch_id: branchId,
     branch_name: reply.user.branch?.name ?? '',
-    is_admin: reply.user.is_admin === true,
     token: reply.token,
     pin_salt: salt,
     pin_hash: hash,
@@ -89,8 +90,8 @@ export async function refreshAccount(account: Account): Promise<void> {
     await db.accounts.update(account.user_id, {
       name: reply.user.name,
       role: reply.user.role,
-      branch_name: reply.user.branch?.name ?? account.branch_name,
-      is_admin: reply.user.is_admin === true,
+      branch_id: reply.user.branch_id ?? '',
+      branch_name: reply.user.branch?.name ?? '',
     })
   } catch {
     // Offline or refused: keep what this device already knows.

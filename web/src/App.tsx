@@ -1,7 +1,9 @@
 import type { ReactNode } from 'react'
 import { Navigate, Route, Routes } from 'react-router'
 import { useAuth } from './auth/AuthContext.tsx'
+import AdminShell from './components/AdminShell.tsx'
 import AppShell from './components/AppShell.tsx'
+import AdminBayPage from './pages/AdminBayPage.tsx'
 import AdminPage from './pages/AdminPage.tsx'
 import CrewPage from './pages/CrewPage.tsx'
 import CustomersPage from './pages/CustomersPage.tsx'
@@ -48,10 +50,19 @@ function OwnerOnly({ children }: { children: ReactNode }) {
   return account?.role === 'owner' ? children : <Navigate to="/" replace />
 }
 
+/**
+ * The bay's own screens. The WashNow admin belongs to no bay, so they are
+ * sent to the admin area instead (the server refuses them here too).
+ */
+function BayOnly({ children }: { children: ReactNode }) {
+  const { account } = useAuth()
+  return account?.role === 'admin' ? <Navigate to="/admin" replace /> : children
+}
+
 /** Only the person who runs WashNow itself. The server refuses everyone else too. */
 function AdminOnly({ children }: { children: ReactNode }) {
   const { account } = useAuth()
-  return account?.is_admin ? children : <Navigate to="/" replace />
+  return account?.role === 'admin' ? children : <Navigate to="/" replace />
 }
 
 export default function App() {
@@ -60,11 +71,13 @@ export default function App() {
       <Route path="/login" element={<LoginPage />} />
       <Route path="/unlock" element={<UnlockPage />} />
 
-      {/* Signed-in screens share the navigation frame. */}
+      {/* A bay's screens share the bay's navigation frame. */}
       <Route
         element={
           <RequireAccount>
-            <AppShell />
+            <BayOnly>
+              <AppShell />
+            </BayOnly>
           </RequireAccount>
         }
       >
@@ -78,8 +91,21 @@ export default function App() {
         <Route path="/reports" element={<OwnerOnly><ReportsPage /></OwnerOnly>} />
         <Route path="/day-close" element={<OwnerOnly><DayClosePage /></OwnerOnly>} />
         <Route path="/settings" element={<OwnerOnly><SettingsPage /></OwnerOnly>} />
-        <Route path="/admin" element={<AdminOnly><AdminPage /></AdminOnly>} />
         <Route path="/sync" element={<SyncPage />} />
+      </Route>
+
+      {/* The WashNow admin's own frame: every washing bay. */}
+      <Route
+        element={
+          <RequireAccount>
+            <AdminOnly>
+              <AdminShell />
+            </AdminOnly>
+          </RequireAccount>
+        }
+      >
+        <Route path="/admin" element={<AdminPage />} />
+        <Route path="/admin/bays/:id" element={<AdminBayPage />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/" replace />} />

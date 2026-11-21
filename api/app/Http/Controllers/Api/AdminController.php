@@ -16,22 +16,32 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Unique;
-use Illuminate\Validation\ValidationException;
 
 /**
- * The WashNow admin's page: every washing bay, with its owner, how busy it is
- * and this month's takings. Creating a bay sets up its owner and the usual
- * vehicle types. Nothing here syncs to devices; it is online only.
+ * The WashNow admin: every washing bay, with its owner, how busy it is and
+ * this month's takings; creating bays and the accounts of the people in them.
+ * The admin belongs to no bay. Nothing here syncs to devices; it is online
+ * only. (Each bay's detailed report is in ReportController.)
  */
 class AdminController extends Controller
 {
-    public function index(Request $request): JsonResponse
+    public function index(): JsonResponse
     {
         $branches = Branch::query()->orderBy('name')->get();
         $stats = $this->stats();
 
         return response()->json([
-            'data' => $branches->map(fn (Branch $branch) => $this->present($branch, $stats, $request->user()))->values(),
+            'data' => $branches->map(fn (Branch $branch) => $this->present($branch, $stats))->values(),
+            'month_start' => now()->startOfMonth()->toDateString(),
+        ]);
+    }
+
+    public function show(string $id): JsonResponse
+    {
+        $branch = Branch::query()->findOrFail($id);
+
+        return response()->json([
+            'data' => $this->present($branch, $this->stats()),
             'month_start' => now()->startOfMonth()->toDateString(),
         ]);
     }
@@ -58,7 +68,7 @@ class AdminController extends Controller
             ['name' => $data['owner_name'], 'phone' => $data['owner_phone'], 'pin' => $data['owner_pin']],
         );
 
-        return response()->json(['data' => $this->present($branch, $this->stats(), $request->user())], 201);
+        return response()->json(['data' => $this->present($branch, $this->stats())], 201);
     }
 
     public function update(Request $request, string $id): JsonResponse
@@ -75,17 +85,13 @@ class AdminController extends Controller
 
         $branch->update($data);
 
-        return response()->json(['data' => $this->present($branch, $this->stats(), $request->user())]);
+        return response()->json(['data' => $this->present($branch, $this->stats())]);
     }
 
     /** Nobody in the bay can sign in, and every device is signed out now. */
-    public function suspend(Request $request, string $id): JsonResponse
+    public function suspend(string $id): JsonResponse
     {
         $branch = Branch::query()->findOrFail($id);
-
-        if ($branch->is($request->user()->branch)) {
-            throw ValidationException::withMessages(['branch' => ['You cannot suspend your own washing bay.']]);
-        }
 
         if (! $branch->isSuspended()) {
             DB::transaction(function () use ($branch) {
@@ -97,10 +103,10 @@ class AdminController extends Controller
             });
         }
 
-        return response()->json(['data' => $this->present($branch, $this->stats(), $request->user())]);
+        return response()->json(['data' => $this->present($branch, $this->stats())]);
     }
 
-    public function resume(Request $request, string $id): JsonResponse
+    public function resume(string $id): JsonResponse
     {
         $branch = Branch::query()->findOrFail($id);
 
@@ -108,10 +114,10 @@ class AdminController extends Controller
             $branch->forceFill(['suspended_at' => null])->save();
         }
 
-        return response()->json(['data' => $this->present($branch, $this->stats(), $request->user())]);
+        return response()->json(['data' => $this->present($branch, $this->stats())]);
     }
 
-    /** The people who sign in to one bay, for resetting a forgotten PIN. */
+    /** The people who sign in to one bay. */
     public function users(string $id): JsonResponse
     {
         $branch = Branch::query()->findOrFail($id);
@@ -121,16 +127,61 @@ class AdminController extends Controller
             ->orderByRaw("case when role = 'owner' then 0 else 1 end")
             ->orderBy('name')
             ->get()
-            ->map(fn (User $user) => [
-                'id' => $user->id,
-                'name' => $user->name,
-                'phone' => $user->phone,
-                'role' => $user->role->value,
-                'active' => $user->active,
-                'last_seen_at' => $this->iso($lastSeen->get($user->id)),
-            ]);
+            ->map(fn (User $user) => $this->presentPerson($user, $lastSeen->get($user->id)));
 
         return response()->json(['data' => $users]);
+    }
+
+    /** Give a bay a new owner or cashier. */
+    public function storeUser(Request $request, string $id): JsonResponse
+    {
+        $branch = Branch::query()->findOrFail($id);
+
+        $request->merge(['phone' => User::normalisePhone((string) $request->input('phone'))]);
+
+        $data = $request->validate([
+            'name' => ['required', 'string', 'max:100'],
+            'phone' => ['required', 'string', 'min:7', 'max:20', Rule::unique('users', 'phone')],
+            'pin' => ['required', 'digits:4'],
+            'role' => ['required', Rule::in(UserRole::bayRoles())],
+        ], [
+            'phone.unique' => 'Someone already signs in with this phone number. Each person can belong to one bay.',
+            'pin.digits' => 'The PIN must be 4 digits.',
+        ]);
+
+        $user = User::query()->create([
+            'branch_id' => $branch->id,
+            'name' => $data['name'],
+            'phone' => $data['phone'],
+            'pin_hash' => $data['pin'],
+            'role' => $data['role'],
+            'active' => true,
+        ]);
+
+        return response()->json(['data' => $this->presentPerson($user, null)], 201);
+    }
+
+    /**
+     * Change someone's name or role, or turn them off or on. A new role or
+     * being turned off signs them out of every device straight away.
+     */
+    public function updateUser(Request $request, string $id, string $userId): JsonResponse
+    {
+        $user = User::query()->where('branch_id', $id)->findOrFail($userId);
+
+        $data = $request->validate([
+            'name' => ['sometimes', 'required', 'string', 'max:100'],
+            'role' => ['sometimes', 'required', Rule::in(UserRole::bayRoles())],
+            'active' => ['sometimes', 'boolean'],
+        ]);
+
+        $user->update($data);
+
+        if ($user->wasChanged(['role', 'active'])) {
+            $user->tokens()->delete();
+        }
+
+        return response()->json(['data' => $this->presentPerson($user, $this->lastSeenByUser($id)->get($user->id))]);
     }
 
     /** A new PIN signs the person out everywhere, so only the new PIN works. */
@@ -141,10 +192,7 @@ class AdminController extends Controller
         $data = $request->validate(['pin' => ['required', 'digits:4']], ['pin.digits' => 'The PIN must be 4 digits.']);
 
         $user->update(['pin_hash' => $data['pin']]);
-
-        if (! $user->is($request->user())) {
-            $user->tokens()->delete();
-        }
+        $user->tokens()->delete();
 
         return response()->json(['message' => "{$user->name} can now sign in with the new PIN."]);
     }
@@ -152,6 +200,21 @@ class AdminController extends Controller
     private function uniqueName(?Branch $except = null): Unique
     {
         return Rule::unique('branches', 'name')->ignore($except?->id)->whereNull('deleted_at');
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function presentPerson(User $user, mixed $lastSeen): array
+    {
+        return [
+            'id' => $user->id,
+            'name' => $user->name,
+            'phone' => $user->phone,
+            'role' => $user->role->value,
+            'active' => $user->active,
+            'last_seen_at' => $this->iso($lastSeen),
+        ];
     }
 
     /**
@@ -176,6 +239,7 @@ class AdminController extends Controller
             ->pluck('last_sale_at', 'branch_id');
 
         $staff = User::query()
+            ->whereNotNull('branch_id')
             ->where('active', true)
             ->groupBy('branch_id')
             ->selectRaw('branch_id, count(*) as staff_count')
@@ -184,6 +248,7 @@ class AdminController extends Controller
         $lastSeen = DB::table('personal_access_tokens')
             ->join('users', 'users.id', '=', 'personal_access_tokens.tokenable_id')
             ->where('personal_access_tokens.tokenable_type', User::class)
+            ->whereNotNull('users.branch_id')
             ->groupBy('users.branch_id')
             ->selectRaw('users.branch_id, max(personal_access_tokens.last_used_at) as last_seen_at')
             ->pluck('last_seen_at', 'branch_id');
@@ -201,7 +266,7 @@ class AdminController extends Controller
      * @param  array<string, Collection<string, mixed>>  $stats
      * @return array<string, mixed>
      */
-    private function present(Branch $branch, array $stats, User $admin): array
+    private function present(Branch $branch, array $stats): array
     {
         $month = $stats['month']->get($branch->id);
 
@@ -212,7 +277,6 @@ class AdminController extends Controller
             'phone' => $branch->phone,
             'suspended_at' => $branch->suspended_at?->toIso8601String(),
             'created_at' => $branch->created_at?->toIso8601String(),
-            'is_own' => $branch->id === $admin->branch_id,
             'owners' => ($stats['owners']->get($branch->id) ?? collect())
                 ->map(fn (User $owner) => ['id' => $owner->id, 'name' => $owner->name, 'phone' => $owner->phone, 'active' => $owner->active])
                 ->values(),

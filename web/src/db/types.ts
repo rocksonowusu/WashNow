@@ -1,7 +1,8 @@
 // Shapes of the records kept on the device. They mirror the server tables;
 // all money is whole pesewas and all times are ISO strings.
 
-export type Role = 'owner' | 'cashier'
+/** 'admin' runs WashNow itself: manages every bay and belongs to none. */
+export type Role = 'owner' | 'cashier' | 'admin'
 export type PaymentMethod = 'cash' | 'momo'
 export type SaleStatus = 'active' | 'voided'
 export type ExpenseCategory = 'soap' | 'water' | 'fuel' | 'electricity' | 'other'
@@ -152,10 +153,9 @@ export type Account = {
   name: string
   phone: string
   role: Role
+  /** Empty for the WashNow admin, who belongs to no bay. */
   branch_id: string
   branch_name: string
-  /** Runs WashNow itself and sees the Washing bays page. Refreshed from the server when online. */
-  is_admin?: boolean
   /** Cleared when the server stops accepting it; the person signs in online again. */
   token: string | null
   pin_salt: string

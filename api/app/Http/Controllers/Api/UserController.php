@@ -92,7 +92,8 @@ class UserController extends Controller
             'name' => [$presence, 'string', 'max:100'],
             'phone' => [$presence, 'string', 'min:7', 'max:20', Rule::unique('users')->ignore($user?->id)],
             'pin' => [$presence, 'digits:4'],
-            'role' => [$presence, Rule::enum(UserRole::class)],
+            // Owners manage their own bay's people; only the server makes admins.
+            'role' => [$presence, Rule::in(UserRole::bayRoles())],
             'active' => ['sometimes', 'boolean'],
         ], [
             'phone.unique' => 'Another user already signs in with this phone number.',

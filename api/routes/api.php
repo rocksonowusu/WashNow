@@ -90,13 +90,21 @@ Route::middleware(['auth:sanctum', 'role:owner,cashier'])->group(function () {
     });
 });
 
-// The WashNow admin only: every washing bay. Online only, never synced.
-Route::middleware(['auth:sanctum', 'role:owner,cashier', 'admin'])->prefix('admin')->group(function () {
+// The WashNow admin only: every washing bay. The admin belongs to no bay, so
+// the bay routes above refuse them. Online only, never synced.
+Route::middleware(['auth:sanctum', 'admin'])->prefix('admin')->group(function () {
     Route::get('/branches', [AdminController::class, 'index']);
     Route::post('/branches', [AdminController::class, 'store']);
+    Route::get('/branches/{id}', [AdminController::class, 'show']);
     Route::put('/branches/{id}', [AdminController::class, 'update']);
     Route::post('/branches/{id}/suspend', [AdminController::class, 'suspend']);
     Route::delete('/branches/{id}/suspend', [AdminController::class, 'resume']);
+
     Route::get('/branches/{id}/users', [AdminController::class, 'users']);
+    Route::post('/branches/{id}/users', [AdminController::class, 'storeUser']);
+    Route::put('/branches/{id}/users/{userId}', [AdminController::class, 'updateUser']);
     Route::put('/branches/{id}/users/{userId}/pin', [AdminController::class, 'resetPin']);
+
+    Route::get('/branches/{id}/reports/summary', [ReportController::class, 'adminSummary']);
+    Route::get('/branches/{id}/reports/export', [ReportController::class, 'adminExport']);
 });

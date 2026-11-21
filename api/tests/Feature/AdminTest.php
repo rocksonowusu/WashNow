@@ -1,19 +1,18 @@
 <?php
 
+use App\Enums\UserRole;
 use App\Models\Branch;
 use App\Models\Sale;
+use App\Models\User;
 use App\Models\VehicleCategory;
 use Database\Factories\UserFactory;
 use Laravel\Sanctum\PersonalAccessToken;
 use Laravel\Sanctum\Sanctum;
 
-/** A bay whose owner is also the WashNow admin. */
-function adminBay(): stdClass
+/** The WashNow admin: belongs to no bay. */
+function admin(): User
 {
-    $bay = bay();
-    $bay->owner->forceFill(['is_admin' => true])->save();
-
-    return $bay;
+    return User::factory()->admin()->create();
 }
 
 function newBayPayload(array $overrides = []): array
@@ -27,7 +26,7 @@ function newBayPayload(array $overrides = []): array
     ];
 }
 
-it('keeps the admin pages from everyone but the admin', function () {
+it('keeps the admin pages from everyone in a bay', function () {
     $bay = bay();
 
     Sanctum::actingAs($bay->owner);
@@ -39,16 +38,34 @@ it('keeps the admin pages from everyone but the admin', function () {
     expect(Branch::query()->count())->toBe(1);
 });
 
+it('keeps the admin out of every bay screen, sync included', function () {
+    bay();
+    Sanctum::actingAs(admin());
+
+    $this->getJson('/api/categories')->assertForbidden();
+    $this->getJson('/api/sync/pull')->assertForbidden();
+    $this->postJson('/api/sync/push', ['changes' => []])->assertForbidden();
+    $this->getJson('/api/reports/summary?from=2026-11-01&to=2026-11-02')->assertForbidden();
+});
+
+it('signs the admin in with no bay', function () {
+    $admin = admin();
+
+    $this->postJson('/api/auth/login', ['phone' => $admin->phone, 'pin' => UserFactory::DEFAULT_PIN])
+        ->assertOk()
+        ->assertJsonPath('user.role', 'admin')
+        ->assertJsonPath('user.branch_id', null)
+        ->assertJsonPath('user.branch', null);
+});
+
 it('creates a bay with its owner and the usual vehicle types', function () {
-    $admin = adminBay();
-    Sanctum::actingAs($admin->owner);
+    Sanctum::actingAs(admin());
 
     $response = $this->postJson('/api/admin/branches', newBayPayload())->assertCreated();
 
     $response->assertJsonPath('data.name', 'Adenta Wash Bay')
         ->assertJsonPath('data.owners.0.name', 'Efua Mensah')
         ->assertJsonPath('data.owners.0.phone', '0245550101')
-        ->assertJsonPath('data.is_own', false)
         ->assertJsonPath('data.suspended_at', null);
 
     $branchId = $response->json('data.id');
@@ -58,25 +75,24 @@ it('creates a bay with its owner and the usual vehicle types', function () {
     $this->postJson('/api/auth/login', ['phone' => '0245550101', 'pin' => '4821'])
         ->assertOk()
         ->assertJsonPath('user.branch_id', $branchId)
-        ->assertJsonPath('user.role', 'owner')
-        ->assertJsonPath('user.is_admin', false);
+        ->assertJsonPath('user.role', 'owner');
 });
 
-it('refuses a phone number that already signs in somewhere', function () {
-    $admin = adminBay();
-    Sanctum::actingAs($admin->owner);
+it('refuses a phone number or bay name that is already taken', function () {
+    $bay = bay();
+    Sanctum::actingAs(admin());
 
-    $this->postJson('/api/admin/branches', newBayPayload(['owner_phone' => $admin->cashier->phone]))
+    $this->postJson('/api/admin/branches', newBayPayload(['owner_phone' => $bay->cashier->phone]))
         ->assertUnprocessable()
         ->assertJsonValidationErrors('owner_phone');
 
-    $this->postJson('/api/admin/branches', newBayPayload(['name' => $admin->branch->name]))
+    $this->postJson('/api/admin/branches', newBayPayload(['name' => $bay->branch->name]))
         ->assertUnprocessable()
         ->assertJsonValidationErrors('name');
 });
 
 it('lists every bay with its owner and this month’s takings', function () {
-    $admin = adminBay();
+    $first = bay();
     $other = bay();
 
     recordSale($other, $other->cashier, ['amount' => 5000])->assertCreated();
@@ -88,24 +104,45 @@ it('lists every bay with its owner and this month’s takings', function () {
     $old = recordSale($other, $other->cashier, ['amount' => 7000])->assertCreated();
     Sale::query()->whereKey($old->json('data.id'))->update(['sold_at' => now()->startOfMonth()->subDay()]);
 
-    Sanctum::actingAs($admin->owner);
+    Sanctum::actingAs(admin());
     $bays = collect($this->getJson('/api/admin/branches')->assertOk()->json('data'))->keyBy('id');
 
     expect($bays)->toHaveCount(2)
-        ->and($bays[$admin->branch->id]['is_own'])->toBeTrue()
+        ->and($bays[$first->branch->id]['month'])->toBe(['sales_count' => 0, 'sales_total' => 0])
         ->and($bays[$other->branch->id]['month'])->toBe(['sales_count' => 2, 'sales_total' => 8000])
         ->and($bays[$other->branch->id]['owners'][0]['name'])->toBe($other->owner->name)
         ->and($bays[$other->branch->id]['staff_count'])->toBe(2)
         ->and($bays[$other->branch->id]['last_sale_at'])->not->toBeNull();
+
+    $this->getJson("/api/admin/branches/{$other->branch->id}")
+        ->assertOk()
+        ->assertJsonPath('data.month.sales_total', 8000);
+});
+
+it('shows the admin any bay’s full report and its files', function () {
+    $bay = bay();
+    recordSale($bay, $bay->cashier, ['amount' => 5000])->assertCreated();
+    $today = now()->toDateString();
+
+    Sanctum::actingAs(admin());
+
+    $this->getJson("/api/admin/branches/{$bay->branch->id}/reports/summary?from={$today}&to={$today}")
+        ->assertOk()
+        ->assertJsonPath('data.totals.sales', 5000)
+        ->assertJsonPath('data.totals.vehicles', 1);
+
+    $this->get("/api/admin/branches/{$bay->branch->id}/reports/export?from={$today}&to={$today}&format=xlsx")
+        ->assertOk()
+        ->assertDownload();
 });
 
 it('suspends a bay: everyone is signed out and nobody can sign in', function () {
-    $admin = adminBay();
     $other = bay();
     $other->owner->createToken('phone');
     $other->cashier->createToken('phone');
+    $admin = admin();
 
-    Sanctum::actingAs($admin->owner);
+    Sanctum::actingAs($admin);
     $this->postJson("/api/admin/branches/{$other->branch->id}/suspend")
         ->assertOk()
         ->assertJsonPath('data.suspended_at', fn ($value) => $value !== null);
@@ -122,24 +159,14 @@ it('suspends a bay: everyone is signed out and nobody can sign in', function () 
     $this->getJson('/api/categories')->assertForbidden();
 
     // Turned back on: they can sign in again.
-    Sanctum::actingAs($admin->owner);
+    Sanctum::actingAs($admin);
     $this->deleteJson("/api/admin/branches/{$other->branch->id}/suspend")->assertOk()->assertJsonPath('data.suspended_at', null);
     $this->postJson('/api/auth/login', ['phone' => $other->owner->phone, 'pin' => UserFactory::DEFAULT_PIN])->assertOk();
 });
 
-it('will not let the admin suspend their own bay', function () {
-    $admin = adminBay();
-    Sanctum::actingAs($admin->owner);
-
-    $this->postJson("/api/admin/branches/{$admin->branch->id}/suspend")->assertUnprocessable();
-
-    expect($admin->branch->fresh()->suspended_at)->toBeNull();
-});
-
 it('renames a bay', function () {
-    $admin = adminBay();
     $other = bay();
-    Sanctum::actingAs($admin->owner);
+    Sanctum::actingAs(admin());
 
     $this->putJson("/api/admin/branches/{$other->branch->id}", ['name' => 'Spintex Bay', 'location' => 'Spintex Road'])
         ->assertOk()
@@ -147,11 +174,50 @@ it('renames a bay', function () {
         ->assertJsonPath('data.location', 'Spintex Road');
 });
 
+it('gives a bay a new owner or cashier', function () {
+    $bay = bay();
+    Sanctum::actingAs(admin());
+
+    $this->postJson("/api/admin/branches/{$bay->branch->id}/users", [
+        'name' => 'Yaw Boateng', 'phone' => '0277000111', 'pin' => '5566', 'role' => 'owner',
+    ])->assertCreated()->assertJsonPath('data.role', 'owner');
+
+    // Nobody can be made an admin this way, and phones stay one per person.
+    $this->postJson("/api/admin/branches/{$bay->branch->id}/users", [
+        'name' => 'Sneaky', 'phone' => '0277000222', 'pin' => '5566', 'role' => 'admin',
+    ])->assertUnprocessable()->assertJsonValidationErrors('role');
+
+    $this->postJson("/api/admin/branches/{$bay->branch->id}/users", [
+        'name' => 'Twin', 'phone' => $bay->cashier->phone, 'pin' => '5566', 'role' => 'cashier',
+    ])->assertUnprocessable()->assertJsonValidationErrors('phone');
+
+    $this->postJson('/api/auth/login', ['phone' => '0277000111', 'pin' => '5566'])
+        ->assertOk()
+        ->assertJsonPath('user.branch_id', $bay->branch->id);
+});
+
+it('turns a person off and on, signing them out when turned off', function () {
+    $bay = bay();
+    $bay->cashier->createToken('phone');
+    Sanctum::actingAs(admin());
+
+    $this->putJson("/api/admin/branches/{$bay->branch->id}/users/{$bay->cashier->id}", ['active' => false])
+        ->assertOk()
+        ->assertJsonPath('data.active', false);
+
+    expect(PersonalAccessToken::query()->where('tokenable_id', $bay->cashier->id)->count())->toBe(0);
+
+    $this->postJson('/api/auth/login', ['phone' => $bay->cashier->phone, 'pin' => UserFactory::DEFAULT_PIN])->assertUnprocessable();
+
+    $this->putJson("/api/admin/branches/{$bay->branch->id}/users/{$bay->cashier->id}", ['active' => true])->assertOk();
+    $this->postJson('/api/auth/login', ['phone' => $bay->cashier->phone, 'pin' => UserFactory::DEFAULT_PIN])->assertOk();
+});
+
 it('resets a forgotten PIN and signs the person out everywhere', function () {
-    $admin = adminBay();
+    $bay = bay();
     $other = bay();
     $other->owner->createToken('old phone');
-    Sanctum::actingAs($admin->owner);
+    Sanctum::actingAs(admin());
 
     $people = $this->getJson("/api/admin/branches/{$other->branch->id}/users")->assertOk()->json('data');
     expect($people[0]['role'])->toBe('owner')->and($people)->toHaveCount(2);
@@ -162,34 +228,38 @@ it('resets a forgotten PIN and signs the person out everywhere', function () {
 
     $this->postJson('/api/auth/login', ['phone' => $other->owner->phone, 'pin' => '7302'])->assertOk();
 
-    // The user must belong to the bay in the address.
-    $this->putJson("/api/admin/branches/{$admin->branch->id}/users/{$other->owner->id}/pin", ['pin' => '1111'])->assertNotFound();
+    // The person must belong to the bay in the address.
+    $this->putJson("/api/admin/branches/{$bay->branch->id}/users/{$other->owner->id}/pin", ['pin' => '1111'])->assertNotFound();
 });
 
-it('tells only the admin themselves that they are the admin', function () {
-    $admin = adminBay();
+it('never lets an owner make someone an admin', function () {
+    $bay = bay();
+    Sanctum::actingAs($bay->owner);
 
-    $this->postJson('/api/auth/login', ['phone' => $admin->owner->phone, 'pin' => UserFactory::DEFAULT_PIN])
-        ->assertOk()
-        ->assertJsonPath('user.is_admin', true);
+    $this->postJson('/api/users', ['name' => 'Sneaky', 'phone' => '0277000333', 'pin' => '1234', 'role' => 'admin'])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors('role');
 
-    Sanctum::actingAs($admin->owner);
-    $this->getJson('/api/auth/me')->assertJsonPath('user.is_admin', true);
+    $this->putJson("/api/users/{$bay->cashier->id}", ['role' => 'admin'])->assertUnprocessable();
 
-    // The bay's devices sync the user list, but never the admin flag.
-    Sanctum::actingAs($admin->cashier);
-    $users = $this->getJson('/api/sync/pull')->assertOk()->json('tables.users');
-    expect(collect($users)->every(fn (array $user) => ! array_key_exists('is_admin', $user)))->toBeTrue();
+    expect(User::query()->where('role', UserRole::Admin)->count())->toBe(0);
 });
 
 it('makes someone the admin from the command line', function () {
     $bay = bay();
+    $bay->owner->createToken('phone');
 
     $this->artisan('washnow:admin', ['phone' => $bay->owner->phone])->assertSuccessful();
-    expect($bay->owner->fresh()->is_admin)->toBeTrue();
 
-    $this->artisan('washnow:admin', ['phone' => $bay->owner->phone, '--remove' => true])->assertSuccessful();
-    expect($bay->owner->fresh()->is_admin)->toBeFalse();
+    $owner = $bay->owner->fresh();
+    expect($owner->role)->toBe(UserRole::Admin)
+        ->and($owner->branch_id)->toBeNull()
+        ->and($owner->tokens()->count())->toBe(0);
 
-    $this->artisan('washnow:admin', ['phone' => '0209999999'])->assertFailed();
+    // A brand-new admin account.
+    $this->artisan('washnow:admin', ['phone' => '0209999999', '--name' => 'Kwame Asante', '--pin' => '4821'])->assertSuccessful();
+    $this->postJson('/api/auth/login', ['phone' => '0209999999', 'pin' => '4821'])->assertOk()->assertJsonPath('user.role', 'admin');
+
+    // Unknown number without a name and PIN: nothing happens.
+    $this->artisan('washnow:admin', ['phone' => '0208888888'])->assertFailed();
 });

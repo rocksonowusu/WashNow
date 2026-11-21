@@ -48,6 +48,15 @@ const capital = (text: string) => text.charAt(0).toUpperCase() + text.slice(1)
  * everything every device has synced, so this screen needs internet.
  */
 export default function ReportsPage() {
+  return <ReportView />
+}
+
+/**
+ * The report itself. `basePath` is where the server keeps it: the owner's own
+ * bay at /reports, or one bay at /admin/branches/{id}/reports for the WashNow
+ * admin. `fileLabel` goes in downloaded file names, after "washnow-report-".
+ */
+export function ReportView({ basePath = '/reports', fileLabel }: { basePath?: string; fileLabel?: string }) {
   const { account } = useAuth()
   const online = useOnline()
 
@@ -64,7 +73,7 @@ export default function ReportsPage() {
     if (!token || !valid || !online) return
 
     let cancelled = false
-    api<{ data: Report }>(`/reports/summary?from=${range.from}&to=${range.to}`, { token })
+    api<{ data: Report }>(`${basePath}/summary?from=${range.from}&to=${range.to}`, { token })
       .then((reply) => {
         if (!cancelled) setState({ key, report: reply.data, error: null })
       })
@@ -82,7 +91,7 @@ export default function ReportsPage() {
     return () => {
       cancelled = true
     }
-  }, [token, valid, online, key, range.from, range.to])
+  }, [token, valid, online, key, range.from, range.to, basePath])
 
   const loading = online && valid && state.key !== key
   const report = state.key === key ? state.report : null
@@ -93,7 +102,8 @@ export default function ReportsPage() {
     setExportError(null)
     try {
       const name = range.from === range.to ? range.from : `${range.from}-to-${range.to}`
-      await downloadFile(`/reports/export?from=${range.from}&to=${range.to}&format=${format}`, token, `washnow-report-${name}.${format}`)
+      const label = fileLabel ? `${fileLabel}-` : ''
+      await downloadFile(`${basePath}/export?from=${range.from}&to=${range.to}&format=${format}`, token, `washnow-report-${label}${name}.${format}`)
     } catch (caught) {
       setExportError(caught instanceof NetworkError ? 'Could not reach the server. Try again when online.' : 'The file could not be made. Try again.')
     } finally {

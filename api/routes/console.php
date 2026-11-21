@@ -1,31 +1,60 @@
 <?php
 
+use App\Enums\UserRole;
 use App\Models\User;
 use Illuminate\Support\Facades\Artisan;
 
 /*
-| Make someone the WashNow admin (they can then create and manage every
-| washing bay on the Admin page), or take it away again:
+| The WashNow admin manages every washing bay and belongs to none.
+|
+| Make an existing person the admin (they leave their bay; the bay and its
+| records stay, and can be given a new owner on the admin page):
 |
 |   php artisan washnow:admin 0241234567
-|   php artisan washnow:admin 0241234567 --remove
 |
-| They see the Admin page after they next open the app online.
+| Or create a new admin account:
+|
+|   php artisan washnow:admin 0241234567 --name="Kwame Asante" --pin=4821
 */
-Artisan::command('washnow:admin {phone} {--remove}', function (string $phone) {
-    $user = User::query()->where('phone', User::normalisePhone($phone))->first();
+Artisan::command('washnow:admin {phone} {--name=} {--pin=}', function (string $phone) {
+    $phone = User::normalisePhone($phone);
+    $user = User::query()->where('phone', $phone)->first();
 
     if (! $user) {
-        $this->error('Nobody signs in with that phone number.');
+        $name = trim((string) $this->option('name'));
+        $pin = (string) $this->option('pin');
 
-        return 1;
+        if ($name === '' || ! preg_match('/^\d{4}$/', $pin)) {
+            $this->error('Nobody signs in with that phone number. To create a new admin, add --name="Their name" --pin=1234 (4 digits).');
+
+            return 1;
+        }
+
+        $user = User::query()->create([
+            'branch_id' => null,
+            'name' => $name,
+            'phone' => $phone,
+            'pin_hash' => $pin,
+            'role' => UserRole::Admin,
+            'active' => true,
+        ]);
+
+        $this->info("{$user->name} is the WashNow admin and can sign in now.");
+
+        return 0;
     }
 
-    $user->forceFill(['is_admin' => ! $this->option('remove')])->save();
+    if ($user->role === UserRole::Admin) {
+        $this->info("{$user->name} is already the WashNow admin.");
 
-    $this->info($user->is_admin
-        ? "{$user->name} is now the WashNow admin."
-        : "{$user->name} is no longer the WashNow admin.");
+        return 0;
+    }
+
+    $user->update(['role' => UserRole::Admin, 'branch_id' => null, 'active' => true]);
+    // Their sign-ins were for a bay; they sign in again as the admin.
+    $user->tokens()->delete();
+
+    $this->info("{$user->name} is now the WashNow admin and no longer part of a washing bay.");
 
     return 0;
-})->purpose('Give or remove WashNow admin rights (manage every washing bay)');
+})->purpose('Make someone the WashNow admin, or create an admin account');

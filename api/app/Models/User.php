@@ -15,12 +15,9 @@ class User extends Authenticatable
     /** @use HasFactory<UserFactory> */
     use BelongsToBranch, HasApiTokens, HasFactory, HasUuidSync;
 
-    // is_admin is deliberately not fillable: only `php artisan washnow:admin` sets it.
     protected $fillable = ['id', 'branch_id', 'name', 'phone', 'pin_hash', 'role', 'active'];
 
-    // Left out of the sync feed. is_admin is only ever sent to the person
-    // themselves (UserResource), never to their bay's devices.
-    protected $hidden = ['pin_hash', 'is_admin'];
+    protected $hidden = ['pin_hash'];
 
     /**
      * @return array<string, string>
@@ -32,14 +29,16 @@ class User extends Authenticatable
             'pin_hash' => 'hashed',
             'role' => UserRole::class,
             'active' => 'boolean',
-            'is_admin' => 'boolean',
         ];
     }
 
-    /** Runs WashNow itself: can create and manage every washing bay. */
+    /**
+     * Runs WashNow itself: manages every washing bay. Belongs to no bay
+     * (branch_id is empty), so every bay screen refuses them.
+     */
     public function isAdmin(): bool
     {
-        return $this->is_admin === true && $this->active;
+        return $this->role === UserRole::Admin && $this->active;
     }
 
     /**

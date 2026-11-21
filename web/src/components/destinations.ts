@@ -9,7 +9,6 @@ import {
   ReceiptText,
   RefreshCw,
   Settings,
-  Store,
   UsersRound,
   type LucideIcon,
 } from 'lucide-react'
@@ -25,8 +24,6 @@ export type Destination = {
   phoneTab?: boolean
   /** Hidden from cashiers, and the route refuses them. */
   ownerOnly?: boolean
-  /** Only for the person who runs WashNow itself (every washing bay). */
-  adminOnly?: boolean
   /** One line for the More screen. */
   about?: string
 }
@@ -41,16 +38,12 @@ export const DESTINATIONS: Destination[] = [
   { to: '/reports', label: 'Reports', icon: ChartColumn, ownerOnly: true, about: 'Sales, crew pay and expenses for any dates. Excel and PDF.' },
   { to: '/day-close', label: 'Day close', icon: CalendarCheck, ownerOnly: true, about: 'Check a day’s totals and lock it.' },
   { to: '/settings', label: 'Settings', icon: Settings, ownerOnly: true, about: 'Prices, who can sign in, and the loyalty rule.' },
-  { to: '/admin', label: 'Washing bays', icon: Store, adminOnly: true, about: 'Every bay you run WashNow for: add one, see its takings, reset a PIN.' },
   { to: '/sync', label: 'Sync', icon: RefreshCw, about: 'What is waiting to reach the server, and signing out.' },
 ]
 
 /** The screens this person may open. */
-export function destinationsFor(account: Pick<Account, 'role' | 'is_admin'> | null | undefined): Destination[] {
-  return DESTINATIONS.filter(
-    (destination) =>
-      (!destination.ownerOnly || account?.role === 'owner') && (!destination.adminOnly || account?.is_admin === true),
-  )
+export function destinationsFor(account: Pick<Account, 'role'> | null | undefined): Destination[] {
+  return DESTINATIONS.filter((destination) => !destination.ownerOnly || account?.role === 'owner')
 }
 
 export const PHONE_TABS = DESTINATIONS.filter((destination) => destination.phoneTab)

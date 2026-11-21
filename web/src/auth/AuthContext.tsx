@@ -43,8 +43,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setActiveId(userId)
   }, [])
 
-  // Sync runs for whoever is unlocked and holds a working token.
-  const syncUserId = account?.token ? account.user_id : null
+  // Sync runs for whoever is unlocked and holds a working token. The WashNow
+  // admin belongs to no bay, so there is nothing for them to sync.
+  const syncUserId = account?.token && account.role !== 'admin' ? account.user_id : null
   useEffect(() => {
     if (!syncUserId) return
     syncService.start(syncUserId)
@@ -52,10 +53,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [syncUserId])
 
   // Once per unlock, catch up with changes to this person made on the server.
+  const signedInId = account?.token ? account.user_id : null
   useEffect(() => {
-    if (!syncUserId) return
-    void db.accounts.get(syncUserId).then((saved) => saved && refreshAccount(saved))
-  }, [syncUserId])
+    if (!signedInId) return
+    void db.accounts.get(signedInId).then((saved) => saved && refreshAccount(saved))
+  }, [signedInId])
 
   const value = useMemo<AuthValue>(
     () => ({

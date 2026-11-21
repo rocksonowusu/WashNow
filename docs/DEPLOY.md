@@ -332,17 +332,21 @@ Then run it next to the paper book for a week, as planned in `docs/PLAN.md`.
 ## Running more than one washing bay
 
 Each bay's people only ever see their own bay. The person who runs WashNow is the
-**admin**: they keep their own bay, and also get a **Washing bays** page. There they can
-add a bay together with its owner, see each bay's takings this month, rename a bay,
-reset a forgotten PIN, and suspend or turn a bay back on.
+**admin**. The admin belongs to no bay: they don't record sales, and the app opens
+straight on the **Washing bays** area. From there they can:
 
-Make yourself the admin once, in cPanel Terminal:
+- add a bay together with its owner, and see every bay's takings this month side by side
+- open a bay for its full figures for any dates (with Excel and PDF), its people (add
+  owners and cashiers, give someone a new PIN, turn someone off or on), its details,
+  and suspend it or turn it back on
+
+Make someone the admin (they leave their bay; the bay and its records stay, and can be
+given a new owner from the admin area), or create a new admin account:
 
 ```bash
-cd ~/washnow/api && php83 artisan washnow:admin 0XXXXXXXXX     # your sign-in phone number
+cd ~/washnow/api && php83 artisan washnow:admin 0XXXXXXXXX
+cd ~/washnow/api && php83 artisan washnow:admin 0XXXXXXXXX --name="Their name" --pin=1234
 ```
-
-The page appears the next time you open the app online. To take admin rights away, add `--remove`.
 
 ---
 

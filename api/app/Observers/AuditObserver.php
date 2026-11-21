@@ -72,8 +72,19 @@ class AuditObserver
      */
     private function log(Model $model, string $action, ?array $before, ?array $after): void
     {
+        // Every entry belongs to a bay's log. Someone who has just left their
+        // bay to become the WashNow admin is logged in the bay they left; the
+        // admin account itself, which belongs to no bay, has no log.
+        $branchId = $model instanceof Branch
+            ? $model->getKey()
+            : ($model->getAttribute('branch_id') ?? $model->getRawOriginal('branch_id'));
+
+        if ($branchId === null) {
+            return;
+        }
+
         AuditLog::query()->create([
-            'branch_id' => $model instanceof Branch ? $model->getKey() : $model->getAttribute('branch_id'),
+            'branch_id' => $branchId,
             'user_id' => Auth::id(),
             'action' => $action,
             'table_name' => $model->getTable(),

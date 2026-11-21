@@ -43,6 +43,12 @@ class UserFactory extends Factory
         return $this->state(['role' => UserRole::Cashier]);
     }
 
+    /** The WashNow admin: no bay of their own. */
+    public function admin(): static
+    {
+        return $this->state(['role' => UserRole::Admin, 'branch_id' => null]);
+    }
+
     public function inactive(): static
     {
         return $this->state(['active' => false]);
