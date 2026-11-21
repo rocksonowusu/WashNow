@@ -35,9 +35,20 @@ class User extends Authenticatable
     /**
      * Staff type phone numbers with spaces or dashes; store and compare one form.
      */
+    /**
+     * Spaces and dashes are dropped, and a Ghana number written the
+     * international way (+233 55 123 4567 or 233551234567) is kept the local
+     * way (0551234567), so either form signs in to the same account.
+     */
     public static function normalisePhone(string $phone): string
     {
-        return preg_replace('/[^0-9+]/', '', $phone) ?? '';
+        $phone = preg_replace('/[^0-9+]/', '', $phone) ?? '';
+
+        if (preg_match('/^\+?233(\d{9})$/', $phone, $match)) {
+            return '0'.$match[1];
+        }
+
+        return $phone;
     }
 
     public function isOwner(): bool

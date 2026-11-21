@@ -30,6 +30,16 @@ it('accepts a phone number typed with spaces or dashes', function () {
     login('024 400-0001')->assertOk();
 });
 
+it('treats +233 and 0 as the same Ghana number', function () {
+    User::factory()->create(['phone' => User::normalisePhone('+233244000001')]);
+
+    expect(User::query()->value('phone'))->toBe('0244000001');
+
+    login('+233 24 400 0001')->assertOk();
+    login('233244000001')->assertOk();
+    login('0244000001')->assertOk();
+});
+
 it('rejects a wrong PIN', function () {
     User::factory()->create(['phone' => '0244000001']);
 

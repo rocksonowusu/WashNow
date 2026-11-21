@@ -28,3 +28,5 @@ Thumbs.db
 
 # Written by cPanel on the server (SSL renewal checks)
 /public/.well-known
+/public/.user.ini
+/public/php.ini

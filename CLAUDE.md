@@ -4,7 +4,8 @@ You are building **WashNow**, an offline-first sales record app for a car washin
 Full plan: `docs/PLAN.md`. Design rules: `DESIGN.md`. Read both before starting any stage.
 
 ## Stack
-- `/api` — Laravel 13, PHP 8.3+ (8.4 locally), MySQL 8, Sanctum (bearer tokens), Pest tests
+- `/api` — Laravel 13, PHP 8.3+ (8.4 locally), MySQL 8, Sanctum (bearer tokens), Pest 4 tests
+- The production server only has PHP 8.3, so `api/composer.json` pins `config.platform.php` to 8.3.0. Keep it, and don't add packages that need PHP 8.4 (that is why Pest is on v4, not v5).
 - `/web` — React 19 + Vite 8 + TypeScript + Tailwind 4 + Dexie.js + vite-plugin-pwa
 - Tailwind 4 has no `tailwind.config`: the design tokens live in `web/src/index.css` under `@theme`.
 - Local MySQL: database `washnow`, user `washnow` (created by `scripts/setup-db.ps1`). Never use or change the root account; other apps depend on it.
