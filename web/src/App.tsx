@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import { Navigate, Route, Routes } from 'react-router'
 import { useAuth } from './auth/AuthContext.tsx'
 import AppShell from './components/AppShell.tsx'
+import AdminPage from './pages/AdminPage.tsx'
 import CrewPage from './pages/CrewPage.tsx'
 import CustomersPage from './pages/CustomersPage.tsx'
 import DashboardPage from './pages/DashboardPage.tsx'
@@ -47,6 +48,12 @@ function OwnerOnly({ children }: { children: ReactNode }) {
   return account?.role === 'owner' ? children : <Navigate to="/" replace />
 }
 
+/** Only the person who runs WashNow itself. The server refuses everyone else too. */
+function AdminOnly({ children }: { children: ReactNode }) {
+  const { account } = useAuth()
+  return account?.is_admin ? children : <Navigate to="/" replace />
+}
+
 export default function App() {
   return (
     <Routes>
@@ -71,6 +78,7 @@ export default function App() {
         <Route path="/reports" element={<OwnerOnly><ReportsPage /></OwnerOnly>} />
         <Route path="/day-close" element={<OwnerOnly><DayClosePage /></OwnerOnly>} />
         <Route path="/settings" element={<OwnerOnly><SettingsPage /></OwnerOnly>} />
+        <Route path="/admin" element={<AdminOnly><AdminPage /></AdminOnly>} />
         <Route path="/sync" element={<SyncPage />} />
       </Route>
 

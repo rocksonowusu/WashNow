@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\AdminController;
 use App\Http\Controllers\Api\AuditLogController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BranchController;
@@ -87,4 +88,15 @@ Route::middleware(['auth:sanctum', 'role:owner,cashier'])->group(function () {
         Route::get('/reports/summary', [ReportController::class, 'summary']);
         Route::get('/reports/export', [ReportController::class, 'export']);
     });
+});
+
+// The WashNow admin only: every washing bay. Online only, never synced.
+Route::middleware(['auth:sanctum', 'role:owner,cashier', 'admin'])->prefix('admin')->group(function () {
+    Route::get('/branches', [AdminController::class, 'index']);
+    Route::post('/branches', [AdminController::class, 'store']);
+    Route::put('/branches/{id}', [AdminController::class, 'update']);
+    Route::post('/branches/{id}/suspend', [AdminController::class, 'suspend']);
+    Route::delete('/branches/{id}/suspend', [AdminController::class, 'resume']);
+    Route::get('/branches/{id}/users', [AdminController::class, 'users']);
+    Route::put('/branches/{id}/users/{userId}/pin', [AdminController::class, 'resetPin']);
 });

@@ -18,6 +18,7 @@ class EnsureRole
 
         abort_if($user === null, 401, 'Unauthenticated.');
         abort_unless($user->active, 403, 'This account has been turned off.');
+        abort_if($user->branch?->isSuspended(), 403, 'This washing bay has been suspended.');
         abort_unless(in_array($user->role->value, $roles, true), 403, 'You are not allowed to do this.');
 
         return $next($request);

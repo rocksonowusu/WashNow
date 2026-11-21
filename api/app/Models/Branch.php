@@ -23,7 +23,14 @@ class Branch extends Model
         return [
             'default_commission_percent' => 'decimal:2',
             'loyalty_every_visits' => 'integer',
+            'suspended_at' => 'datetime',
         ];
+    }
+
+    /** Suspended by the WashNow admin: nobody in this bay can sign in. */
+    public function isSuspended(): bool
+    {
+        return $this->suspended_at !== null;
     }
 
     /**

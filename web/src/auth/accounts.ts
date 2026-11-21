@@ -3,17 +3,17 @@ import { MIRROR_TABLES, type Account, type Role } from '../db/types.ts'
 import { api } from '../lib/api.ts'
 import { hashPin, verifyPin } from '../lib/pin.ts'
 
-type LoginReply = {
-  token: string
-  user: {
-    id: string
-    name: string
-    phone: string
-    role: Role
-    branch_id: string
-    branch?: { id: string; name: string }
-  }
+type ServerSelf = {
+  id: string
+  name: string
+  phone: string
+  role: Role
+  is_admin?: boolean
+  branch_id: string
+  branch?: { id: string; name: string }
 }
+
+type LoginReply = { token: string; user: ServerSelf }
 
 function deviceName(): string {
   const agent = navigator.userAgent
@@ -58,6 +58,7 @@ export async function signInOnline(phone: string, pin: string): Promise<Account>
     role: reply.user.role,
     branch_id: reply.user.branch_id,
     branch_name: reply.user.branch?.name ?? '',
+    is_admin: reply.user.is_admin === true,
     token: reply.token,
     pin_salt: salt,
     pin_hash: hash,
@@ -73,6 +74,27 @@ export async function signInOnline(phone: string, pin: string): Promise<Account>
   }
 
   return account
+}
+
+/**
+ * Pick up changes made on the server since this person signed in on this
+ * device: their name, role, bay name, or being made the WashNow admin. Quietly
+ * does nothing when offline; sync deals with a token the server refuses.
+ */
+export async function refreshAccount(account: Account): Promise<void> {
+  if (!account.token) return
+
+  try {
+    const reply = await api<{ user: ServerSelf }>('/auth/me', { token: account.token, timeoutMs: 10_000 })
+    await db.accounts.update(account.user_id, {
+      name: reply.user.name,
+      role: reply.user.role,
+      branch_name: reply.user.branch?.name ?? account.branch_name,
+      is_admin: reply.user.is_admin === true,
+    })
+  } catch {
+    // Offline or refused: keep what this device already knows.
+  }
 }
 
 /** Check a PIN against the hash saved on this device. Works with no internet. */

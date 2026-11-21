@@ -88,7 +88,7 @@ function Frame() {
         </div>
 
         <nav aria-label="Main" className="relative flex-1 space-y-1 overflow-y-auto px-3 py-2">
-          {destinationsFor(account?.role).map(({ to, label, icon: Icon }) => (
+          {destinationsFor(account).map(({ to, label, icon: Icon }) => (
             <NavLink
               key={to}
               to={to}

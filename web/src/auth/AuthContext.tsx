@@ -3,7 +3,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import { db } from '../db/db.ts'
 import type { Account } from '../db/types.ts'
 import { syncService } from '../sync/SyncService.ts'
-import { checkPin, removeFromDevice, signInOnline } from './accounts.ts'
+import { checkPin, refreshAccount, removeFromDevice, signInOnline } from './accounts.ts'
 
 /**
  * Who is using the app right now. Being "unlocked" lasts for the browser tab:
@@ -49,6 +49,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!syncUserId) return
     syncService.start(syncUserId)
     return () => syncService.stop()
+  }, [syncUserId])
+
+  // Once per unlock, catch up with changes to this person made on the server.
+  useEffect(() => {
+    if (!syncUserId) return
+    void db.accounts.get(syncUserId).then((saved) => saved && refreshAccount(saved))
   }, [syncUserId])
 
   const value = useMemo<AuthValue>(

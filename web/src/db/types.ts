@@ -154,6 +154,8 @@ export type Account = {
   role: Role
   branch_id: string
   branch_name: string
+  /** Runs WashNow itself and sees the Washing bays page. Refreshed from the server when online. */
+  is_admin?: boolean
   /** Cleared when the server stops accepting it; the person signs in online again. */
   token: string | null
   pin_salt: string

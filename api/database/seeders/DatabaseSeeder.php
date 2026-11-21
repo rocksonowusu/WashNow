@@ -5,26 +5,16 @@ namespace Database\Seeders;
 use App\Enums\UserRole;
 use App\Models\Branch;
 use App\Models\User;
-use App\Models\VehicleCategory;
 use App\Models\Washer;
+use App\Services\BaySetup;
 use Illuminate\Database\Seeder;
 use RuntimeException;
 
+/**
+ * The first bay and its owner. Further bays are created on the Admin page.
+ */
 class DatabaseSeeder extends Seeder
 {
-    /**
-     * Name, min and max in whole cedis, and what the price depends on.
-     * Stored in pesewas.
-     */
-    private const CATEGORIES = [
-        ['Sedan', 15, 100, 'Parts washed'],
-        ['SUV', 20, 150, 'Parts washed'],
-        ['Bus', 40, 200, 'Parts washed'],
-        ['Pickup truck', 40, 200, 'Parts washed'],
-        ['Tipper / container truck', 100, 400, 'Number of tyres'],
-        ['Heavy-duty machine', 40, 400, 'Machine type'],
-    ];
-
     /**
      * Safe to run more than once: existing rows are left as they are.
      */
@@ -51,18 +41,7 @@ class DatabaseSeeder extends Seeder
             ],
         );
 
-        foreach (self::CATEGORIES as $position => [$name, $min, $max, $note]) {
-            VehicleCategory::query()->firstOrCreate(
-                ['branch_id' => $branch->id, 'name' => $name],
-                [
-                    'min_price' => $min * 100,
-                    'max_price' => $max * 100,
-                    'pricing_note' => $note,
-                    'sort_order' => $position + 1,
-                    'active' => true,
-                ],
-            );
-        }
+        app(BaySetup::class)->addDefaultCategories($branch);
 
         // On a developer's machine only: two sample washers, so a sale can be
         // recorded before the owner's settings screens exist. Never seeded on

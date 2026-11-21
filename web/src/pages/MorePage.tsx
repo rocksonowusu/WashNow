@@ -17,7 +17,7 @@ export default function MorePage() {
     <div className="space-y-5">
       <Card>
         <ul>
-          {destinationsFor(account?.role)
+          {destinationsFor(account)
             .filter((destination) => !destination.phoneTab)
             .map(({ to, label, about, icon: Icon }) => (
             <li key={to} className="border-b border-border last:border-b-0">

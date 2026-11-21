@@ -42,6 +42,25 @@ export function formatDateTime(iso: string): string {
   return dateTime.format(new Date(iso))
 }
 
+const shortDate = new Intl.DateTimeFormat('en-GH', { day: 'numeric', month: 'short', timeZone: TIME_ZONE })
+
+/**
+ * When something last happened, the way people say it: "Today, 2:05 pm",
+ * "Yesterday", "3 days ago", "12 Nov". Days are the bay's days (Ghana is UTC).
+ */
+export function formatLastActive(iso: string | null | undefined, now: Date = new Date()): string {
+  if (!iso) return 'Never'
+
+  const then = new Date(iso)
+  const dayNumber = (date: Date) => Math.floor(date.getTime() / 86_400_000)
+  const daysAgo = dayNumber(now) - dayNumber(then)
+
+  if (daysAgo <= 0) return `Today, ${time.format(then)}`
+  if (daysAgo === 1) return 'Yesterday'
+  if (daysAgo < 7) return `${daysAgo} days ago`
+  return shortDate.format(then)
+}
+
 /**
  * Start and end of today at the bay, as ISO strings. Ghana is on UTC all
  * year, so the bay's day is the UTC day.

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { nextDelay, SYNC_INTERVAL_MS } from '../sync/SyncService.ts'
-import { formatMoney, normalisePlate, parseMoney, todayRange } from './format.ts'
+import { formatLastActive, formatMoney, normalisePlate, parseMoney, todayRange } from './format.ts'
 import { hashPin, verifyPin } from './pin.ts'
 import { uuidv7 } from './uuid.ts'
 
@@ -77,6 +77,18 @@ describe('plates and dates', () => {
     for (const outside of ['2026-11-09T23:59:59.999Z', '2026-11-11T00:00:00.000000Z']) {
       expect(outside >= start && outside < end).toBe(false)
     }
+  })
+})
+
+describe('last active', () => {
+  const now = new Date('2026-11-21T15:00:00Z')
+
+  it('says never, today, yesterday, days ago, then the date', () => {
+    expect(formatLastActive(null, now)).toBe('Never')
+    expect(formatLastActive('2026-11-21T09:05:00Z', now)).toMatch(/^Today, 9:05/)
+    expect(formatLastActive('2026-11-20T23:59:00Z', now)).toBe('Yesterday')
+    expect(formatLastActive('2026-11-18T12:00:00Z', now)).toBe('3 days ago')
+    expect(formatLastActive('2026-11-02T12:00:00Z', now)).toBe('2 Nov')
   })
 })
 

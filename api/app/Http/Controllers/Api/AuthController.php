@@ -62,11 +62,18 @@ class AuthController extends Controller
 
         RateLimiter::clear($addressKey);
 
+        // Checked only after the PIN, so a wrong guess never learns the bay's state.
+        if ($user->branch?->isSuspended()) {
+            throw ValidationException::withMessages([
+                'phone' => ['This washing bay has been suspended. Contact WashNow to turn it back on.'],
+            ])->status(403);
+        }
+
         $token = $user->createToken($data['device_name'] ?? 'device')->plainTextToken;
 
         return response()->json([
             'token' => $token,
-            'user' => new UserResource($user->load('branch')),
+            'user' => (new UserResource($user->load('branch')))->forSelf(),
         ]);
     }
 
@@ -81,7 +88,7 @@ class AuthController extends Controller
     public function me(Request $request): JsonResponse
     {
         return response()->json([
-            'user' => new UserResource($request->user()->load('branch')),
+            'user' => (new UserResource($request->user()->load('branch')))->forSelf(),
         ]);
     }
 }
