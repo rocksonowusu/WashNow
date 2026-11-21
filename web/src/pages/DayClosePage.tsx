@@ -3,7 +3,9 @@ import { LockKeyhole, WifiOff } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useAuth } from '../auth/AuthContext.tsx'
 import { ICON } from '../components/icon.ts'
+import { ConfirmDialog } from '../components/Modal.tsx'
 import { inputClass, tableHead } from '../components/styles.ts'
+import { useToast } from '../components/Toast.tsx'
 import { Button, Card, Tag } from '../components/ui.tsx'
 import { db } from '../db/db.ts'
 import { api, ApiError, NetworkError } from '../lib/api.ts'
@@ -34,6 +36,7 @@ const today = () => new Date().toISOString().slice(0, 10)
 export default function DayClosePage() {
   const { account } = useAuth()
   const online = useOnline()
+  const toast = useToast()
   const token = account?.token ?? null
 
   const [date, setDate] = useState(today)
@@ -76,6 +79,7 @@ export default function DayClosePage() {
     try {
       await api('/day-closings', { method: 'POST', token, body: { date } })
       setConfirming(false)
+      toast(`${date} is closed.`)
       setReload((count) => count + 1)
       void syncService.syncNow()
     } catch (caught) {
@@ -168,27 +172,39 @@ export default function DayClosePage() {
                     </p>
                   )}
 
-                  {confirming ? (
-                    <>
-                      <p className="text-text">
-                        Closing {summary.date} saves these totals and locks the day. Sales, voids and expenses dated that day will be refused afterwards. This cannot be undone here.
-                      </p>
-                      <div className="flex flex-wrap gap-2">
-                        <Button busy={closing} icon={<LockKeyhole {...ICON} />} onClick={() => void closeDay()}>
-                          Yes, close {summary.date}
-                        </Button>
-                        <Button variant="secondary" onClick={() => setConfirming(false)}>
-                          Not yet
-                        </Button>
-                      </div>
-                    </>
-                  ) : (
-                    <Button icon={<LockKeyhole {...ICON} />} onClick={() => setConfirming(true)}>
-                      Close this day
-                    </Button>
-                  )}
+                  <Button icon={<LockKeyhole {...ICON} />} onClick={() => setConfirming(true)}>
+                    Close this day
+                  </Button>
 
-                  {closeError && <p className="text-sm text-danger">{closeError}</p>}
+                  <ConfirmDialog
+                    open={confirming}
+                    onClose={() => {
+                      setConfirming(false)
+                      setCloseError(null)
+                    }}
+                    title={`Close ${summary.date}?`}
+                    icon={<LockKeyhole {...ICON} />}
+                    confirmLabel={`Yes, close ${summary.date}`}
+                    cancelLabel="Not yet"
+                    busy={closing}
+                    error={closeError}
+                    onConfirm={() => void closeDay()}
+                  >
+                    <dl className="grid grid-cols-2 gap-x-4 gap-y-2 rounded-control bg-surface-alt px-3 py-3">
+                      <Figure label="Total sales" value={formatMoney(summary.sales_total)} />
+                      <Figure label="Left after both" value={formatMoney(summary.net)} strong />
+                    </dl>
+                    <p>
+                      This saves these totals and locks the day. Sales, voids and expenses dated that day will be refused afterwards. This cannot be undone here.
+                    </p>
+                    {waiting > 0 && (
+                      <p className="rounded-control bg-warning px-3 py-2 font-semibold text-text">
+                        This device still has {waiting} record(s) waiting to sync.
+                      </p>
+                    )}
+                  </ConfirmDialog>
+
+                  {!confirming && closeError && <p className="text-sm text-danger">{closeError}</p>}
                 </div>
               )}
             </>

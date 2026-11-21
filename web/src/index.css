@@ -37,8 +37,13 @@
   --font-heading: 'Archivo Variable', sans-serif;
 
   --radius-*: initial;
-  --radius-control: 6px;
-  --radius-card: 8px;
+  /* Owner's direction, 20 Nov 2026: rounder, slicker shapes everywhere.
+     Fields and choice tiles 12px, cards and panels 20px, buttons and
+     status chips fully round. */
+  --radius-control: 12px;
+  --radius-card: 20px;
+  --radius-panel: 20px;
+  --radius-pill: 9999px;
 
   --shadow-*: initial;
   --shadow-sheet: 0 8px 24px rgb(21 32 43 / 0.12);
@@ -94,4 +99,70 @@
 /* Money columns line up: use on any amount. */
 @utility money {
   font-variant-numeric: tabular-nums;
+}
+
+/*
+ * Drawer entry (owner's direction, 20 Nov 2026). The drawer glides in from
+ * the right, then the form's parts rise in one after another and the footer
+ * last. Put `rise-columns` on a two-column grid so each column's items
+ * rise in turn rather than the columns as blocks. Off for anyone who has
+ * asked their device for less motion.
+ */
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    translate: 0 12px;
+  }
+}
+
+.drawer-body > :not(.rise-columns) > *,
+.drawer-body > .rise-columns > * > *,
+.drawer-foot {
+  animation: rise-in 460ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.drawer-body > .rise-columns > :nth-child(2) {
+  --rise-offset: 70ms;
+}
+
+.drawer-body > :not(.rise-columns) > :nth-child(1),
+.drawer-body > .rise-columns > * > :nth-child(1) {
+  animation-delay: calc(var(--rise-offset, 0ms) + 90ms);
+}
+
+.drawer-body > :not(.rise-columns) > :nth-child(2),
+.drawer-body > .rise-columns > * > :nth-child(2) {
+  animation-delay: calc(var(--rise-offset, 0ms) + 140ms);
+}
+
+.drawer-body > :not(.rise-columns) > :nth-child(3),
+.drawer-body > .rise-columns > * > :nth-child(3) {
+  animation-delay: calc(var(--rise-offset, 0ms) + 190ms);
+}
+
+.drawer-body > :not(.rise-columns) > :nth-child(4),
+.drawer-body > .rise-columns > * > :nth-child(4) {
+  animation-delay: calc(var(--rise-offset, 0ms) + 240ms);
+}
+
+.drawer-body > :not(.rise-columns) > :nth-child(5),
+.drawer-body > .rise-columns > * > :nth-child(5) {
+  animation-delay: calc(var(--rise-offset, 0ms) + 290ms);
+}
+
+.drawer-body > :not(.rise-columns) > :nth-child(n+6),
+.drawer-body > .rise-columns > * > :nth-child(n+6) {
+  animation-delay: calc(var(--rise-offset, 0ms) + 340ms);
+}
+
+.drawer-foot {
+  animation-delay: 260ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .drawer-body > :not(.rise-columns) > *,
+  .drawer-body > .rise-columns > * > *,
+  .drawer-foot {
+    animation: none;
+  }
 }

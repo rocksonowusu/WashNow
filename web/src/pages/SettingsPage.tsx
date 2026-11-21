@@ -1,9 +1,11 @@
 import { useLiveQuery } from 'dexie-react-hooks'
-import { Check, KeyRound, Pencil, Plus, Trash2, UserRoundPlus, X } from 'lucide-react'
+import { Check, KeyRound, Pencil, Plus, Power, Trash2, UserRoundPlus } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { useAuth } from '../auth/AuthContext.tsx'
 import { ICON } from '../components/icon.ts'
+import Modal, { ConfirmDialog, ModalActions } from '../components/Modal.tsx'
 import { tableHead } from '../components/styles.ts'
+import { useToast } from '../components/Toast.tsx'
 import { Button, Card, Choice, Field, Tag } from '../components/ui.tsx'
 import { db } from '../db/db.ts'
 import { createVehicleType, LocalValidationError, removeVehicleType, updateVehicleType } from '../db/repositories.ts'
@@ -27,9 +29,12 @@ function serverMessage(caught: unknown, fields: string[]): string {
   return 'That did not work. Try again.'
 }
 
+const errorNote = (error: string | null | undefined) => error && <p className="font-semibold text-danger">{error}</p>
+
 /**
  * Owner only: what the bay charges, who can sign in, and the loyalty rule.
- * (Crew and their commission are on the Crew screen.)
+ * (Crew and their commission are on the Crew screen.) Every change opens in
+ * a modal over the list.
  */
 export default function SettingsPage() {
   const { account } = useAuth()
@@ -53,7 +58,7 @@ export default function SettingsPage() {
 
 function VehicleTypesCard({ account }: { account: Account }) {
   const types = useLiveQuery(() => db.vehicle_categories.orderBy('sort_order').toArray(), [])
-  const [editingId, setEditingId] = useState<string | 'new' | null>(null)
+  const [editing, setEditing] = useState<VehicleCategory | 'new' | null>(null)
 
   if (!types) return null
 
@@ -61,44 +66,46 @@ function VehicleTypesCard({ account }: { account: Account }) {
     <Card
       title="Vehicle types and prices"
       action={
-        editingId === null && (
-          <Button variant="quiet" icon={<Plus {...ICON} />} onClick={() => setEditingId('new')}>
-            Add
-          </Button>
-        )
+        <Button variant="quiet" icon={<Plus {...ICON} />} onClick={() => setEditing('new')}>
+          Add
+        </Button>
       }
     >
-      {editingId === 'new' && <VehicleTypeForm account={account} onDone={() => setEditingId(null)} />}
-
       <ul>
-        {types.map((type) =>
-          editingId === type.id ? (
-            <li key={type.id} className="border-b border-border last:border-b-0">
-              <VehicleTypeForm account={account} type={type} onDone={() => setEditingId(null)} />
-            </li>
-          ) : (
-            <li key={type.id} className="flex items-center justify-between gap-3 border-b border-border px-4 py-3 last:border-b-0">
-              <div className="min-w-0">
-                <p className="font-semibold text-text">{type.name}</p>
-                <p className="money text-sm text-text-muted">
-                  {formatMoney(type.min_price)} to {formatMoney(type.max_price)}
-                  {type.pricing_note && <> · {type.pricing_note}</>}
-                </p>
-              </div>
-              <Button variant="quiet" icon={<Pencil {...ICON} />} aria-label={`Change ${type.name}`} onClick={() => setEditingId(type.id)}>
-                <span className="hidden sm:inline">Change</span>
-              </Button>
-            </li>
-          ),
-        )}
+        {types.map((type) => (
+          <li key={type.id} className="flex items-center justify-between gap-3 border-b border-border px-4 py-3 last:border-b-0">
+            <div className="min-w-0">
+              <p className="font-semibold text-text">{type.name}</p>
+              <p className="money text-sm text-text-muted">
+                {formatMoney(type.min_price)} to {formatMoney(type.max_price)}
+                {type.pricing_note && <> · {type.pricing_note}</>}
+              </p>
+            </div>
+            <Button variant="quiet" icon={<Pencil {...ICON} />} aria-label={`Change ${type.name}`} onClick={() => setEditing(type)}>
+              <span className="hidden sm:inline">Change</span>
+            </Button>
+          </li>
+        ))}
       </ul>
 
-      {types.length === 0 && editingId !== 'new' && <p className="px-4 py-4 text-text-muted">No vehicle types yet. Add the first one.</p>}
+      {types.length === 0 && <p className="px-4 py-4 text-text-muted">No vehicle types yet. Add the first one.</p>}
+
+      {/* A new key for each type, so the form starts from that type's values. */}
+      {editing !== null && (
+        <VehicleTypeDialog
+          key={editing === 'new' ? 'new' : editing.id}
+          account={account}
+          type={editing === 'new' ? undefined : editing}
+          onDone={() => setEditing(null)}
+        />
+      )}
     </Card>
   )
 }
 
-function VehicleTypeForm({ account, type, onDone }: { account: Account; type?: VehicleCategory; onDone: () => void }) {
+function VehicleTypeDialog({ account, type, onDone }: { account: Account; type?: VehicleCategory; onDone: () => void }) {
+  const toast = useToast()
+
   const [name, setName] = useState(type?.name ?? '')
   const [minText, setMinText] = useState(type ? cedisText(type.min_price) : '')
   const [maxText, setMaxText] = useState(type ? cedisText(type.max_price) : '')
@@ -120,46 +127,83 @@ function VehicleTypeForm({ account, type, onDone }: { account: Account; type?: V
       if (type) await updateVehicleType(account, type.id, input)
       else await createVehicleType(account, input)
       onDone()
+      toast(`${name.trim()} is saved.`)
     } catch (caught) {
       if (caught instanceof LocalValidationError) setErrors({ [caught.field]: caught.message })
       else setErrors({ form: 'Could not save. Try again.' })
     }
   }
 
+  async function remove() {
+    if (!type) return
+    try {
+      await removeVehicleType(account, type.id)
+      onDone()
+      toast(`${type.name} is removed.`)
+    } catch (caught) {
+      setErrors({ form: caught instanceof LocalValidationError ? caught.message : 'Could not remove. Try again.' })
+      setRemoving(false)
+    }
+  }
+
+  if (type && removing) {
+    return (
+      <ConfirmDialog
+        open
+        onClose={() => setRemoving(false)}
+        title={`Remove ${type.name}?`}
+        tone="danger"
+        icon={<Trash2 {...ICON} />}
+        confirmLabel={`Remove ${type.name}`}
+        cancelLabel="Keep"
+        error={errors.form}
+        onConfirm={() => void remove()}
+      >
+        <p>Cashiers will no longer be able to choose {type.name} for a sale. Past sales keep it and are not changed.</p>
+      </ConfirmDialog>
+    )
+  }
+
   return (
-    <form onSubmit={submit} noValidate className="space-y-3 bg-surface-alt px-4 py-4">
-      <Field id={`type-name-${type?.id ?? 'new'}`} label="Name" autoComplete="off" value={name} onChange={(event) => setName(event.target.value)} error={errors.name} />
-      <div className="grid grid-cols-2 gap-3">
-        <Field id={`type-min-${type?.id ?? 'new'}`} label="Lowest price (GH₵)" inputMode="decimal" autoComplete="off" className="money" value={minText} onChange={(event) => setMinText(event.target.value)} error={errors.minPrice} />
-        <Field id={`type-max-${type?.id ?? 'new'}`} label="Highest price (GH₵)" inputMode="decimal" autoComplete="off" className="money" value={maxText} onChange={(event) => setMaxText(event.target.value)} error={errors.maxPrice} />
-      </div>
-      <Field
-        id={`type-note-${type?.id ?? 'new'}`}
-        label="What the price depends on (optional)"
-        autoComplete="off"
-        placeholder="Parts washed, number of tyres…"
-        value={note}
-        onChange={(event) => setNote(event.target.value)}
-      />
-
-      {errors.form && <p className="text-sm text-danger">{errors.form}</p>}
-
-      <div className="flex flex-wrap gap-2">
-        <Button type="submit" icon={<Check {...ICON} />}>Save</Button>
-        <Button variant="secondary" icon={<X {...ICON} />} onClick={onDone}>Cancel</Button>
-        {type &&
-          (removing ? (
-            <Button variant="danger" icon={<Trash2 {...ICON} />} onClick={() => void removeVehicleType(account, type.id).then(onDone)}>
-              Yes, remove {type.name}
-            </Button>
-          ) : (
+    <Modal
+      open
+      onClose={onDone}
+      title={type ? `Change ${type.name}` : 'Add a vehicle type'}
+      size="sm"
+      onSubmit={submit}
+      footer={
+        <ModalActions note={errorNote(errors.form)}>
+          {type && (
             <Button variant="quiet" icon={<Trash2 {...ICON} />} onClick={() => setRemoving(true)}>
               Remove
             </Button>
-          ))}
+          )}
+          <Button variant="secondary" onClick={onDone}>
+            Cancel
+          </Button>
+          <Button type="submit" icon={<Check {...ICON} />}>
+            Save
+          </Button>
+        </ModalActions>
+      }
+    >
+      <div className="space-y-4">
+        <Field id="type-name" data-autofocus={type ? undefined : true} label="Name" autoComplete="off" value={name} onChange={(event) => setName(event.target.value)} error={errors.name} />
+        <div className="grid grid-cols-2 gap-3">
+          <Field id="type-min" label="Lowest price (GH₵)" inputMode="decimal" autoComplete="off" className="money" value={minText} onChange={(event) => setMinText(event.target.value)} error={errors.minPrice} />
+          <Field id="type-max" label="Highest price (GH₵)" inputMode="decimal" autoComplete="off" className="money" value={maxText} onChange={(event) => setMaxText(event.target.value)} error={errors.maxPrice} />
+        </div>
+        <Field
+          id="type-note"
+          label="What the price depends on (optional)"
+          autoComplete="off"
+          placeholder="Parts washed, number of tyres…"
+          value={note}
+          onChange={(event) => setNote(event.target.value)}
+        />
+        {type && <p className="text-sm text-text-muted">A new range applies to sales from now on. Past sales are not changed.</p>}
       </div>
-      {type && <p className="text-sm text-text-muted">A new range applies to sales from now on. Past sales are not changed.</p>}
-    </form>
+    </Modal>
   )
 }
 
@@ -196,16 +240,12 @@ function UsersCard({ account }: { account: Account }) {
     <Card
       title="People who can sign in"
       action={
-        !adding && (
-          <Button variant="quiet" icon={<UserRoundPlus {...ICON} />} disabled={!online} onClick={() => setAdding(true)}>
-            Add
-          </Button>
-        )
+        <Button variant="quiet" icon={<UserRoundPlus {...ICON} />} disabled={!online} onClick={() => setAdding(true)}>
+          Add
+        </Button>
       }
     >
       {!online && <p className="border-b border-border bg-warning px-4 py-2 font-semibold text-text">Offline. Changing users and PINs needs internet.</p>}
-
-      {adding && <AddUserForm account={account} onDone={() => setAdding(false)} />}
 
       <table className="w-full">
         <thead>
@@ -220,11 +260,15 @@ function UsersCard({ account }: { account: Account }) {
           ))}
         </tbody>
       </table>
+
+      {adding && <AddUserDialog account={account} onDone={() => setAdding(false)} />}
     </Card>
   )
 }
 
-function AddUserForm({ account, onDone }: { account: Account; onDone: () => void }) {
+function AddUserDialog({ account, onDone }: { account: Account; onDone: () => void }) {
+  const toast = useToast()
+
   const [name, setName] = useState('')
   const [phone, setPhone] = useState('')
   const [pin, setPin] = useState('')
@@ -240,6 +284,7 @@ function AddUserForm({ account, onDone }: { account: Account; onDone: () => void
       const reply = await api<{ data: ServerUser }>('/users', { method: 'POST', token: account.token, body: { name, phone, pin, role } })
       await keepLocally(reply.data)
       onDone()
+      toast(`${reply.data.name} can now sign in.`)
     } catch (caught) {
       setError(serverMessage(caught, ['phone', 'pin', 'name', 'role']))
     } finally {
@@ -248,62 +293,78 @@ function AddUserForm({ account, onDone }: { account: Account; onDone: () => void
   }
 
   return (
-    <form onSubmit={submit} noValidate className="space-y-3 border-b border-border bg-surface-alt px-4 py-4">
-      <Field id="user-name" label="Name" autoComplete="off" autoCapitalize="words" value={name} onChange={(event) => setName(event.target.value)} />
-      <Field id="user-phone" label="Phone number (they sign in with this)" type="tel" inputMode="tel" autoComplete="off" placeholder="024 000 0000" value={phone} onChange={(event) => setPhone(event.target.value)} />
-      <Field
-        id="user-pin"
-        label="PIN (4 digits)"
-        inputMode="numeric"
-        autoComplete="off"
-        maxLength={4}
-        className="money"
-        value={pin}
-        onChange={(event) => setPin(event.target.value.replace(/\D/g, ''))}
-        hint="Tell them this PIN yourself. It is not shown again."
-      />
-      <fieldset>
-        <legend className="mb-1 text-sm font-semibold text-text">Role</legend>
-        <div className="grid grid-cols-2 gap-2">
-          <Choice chosen={role === 'cashier'} onClick={() => setRole('cashier')}>
-            <span className="block">Cashier</span>
-            <span className={`block text-sm font-normal ${role === 'cashier' ? 'text-surface/85' : 'text-text-muted'}`}>Records sales and expenses</span>
-          </Choice>
-          <Choice chosen={role === 'owner'} onClick={() => setRole('owner')}>
-            <span className="block">Owner</span>
-            <span className={`block text-sm font-normal ${role === 'owner' ? 'text-surface/85' : 'text-text-muted'}`}>Sees and changes everything</span>
-          </Choice>
-        </div>
-      </fieldset>
-
-      {error && <p className="text-sm text-danger">{error}</p>}
-
-      <div className="flex flex-wrap gap-2">
-        <Button type="submit" busy={busy} disabled={name.trim() === '' || phone.trim() === '' || pin.length !== 4} icon={<Check {...ICON} />}>
-          Add person
-        </Button>
-        <Button variant="secondary" icon={<X {...ICON} />} onClick={onDone}>Cancel</Button>
+    <Modal
+      open
+      onClose={onDone}
+      title="Add someone who can sign in"
+      size="sm"
+      onSubmit={submit}
+      footer={
+        <ModalActions note={errorNote(error)}>
+          <Button variant="secondary" onClick={onDone}>
+            Cancel
+          </Button>
+          <Button type="submit" busy={busy} disabled={name.trim() === '' || phone.trim() === '' || pin.length !== 4} icon={<Check {...ICON} />}>
+            Add person
+          </Button>
+        </ModalActions>
+      }
+    >
+      <div className="space-y-4">
+        <Field id="user-name" data-autofocus label="Name" autoComplete="off" autoCapitalize="words" value={name} onChange={(event) => setName(event.target.value)} />
+        <Field id="user-phone" label="Phone number (they sign in with this)" type="tel" inputMode="tel" autoComplete="off" placeholder="024 000 0000" value={phone} onChange={(event) => setPhone(event.target.value)} />
+        <Field
+          id="user-pin"
+          label="PIN (4 digits)"
+          inputMode="numeric"
+          autoComplete="off"
+          maxLength={4}
+          className="money"
+          value={pin}
+          onChange={(event) => setPin(event.target.value.replace(/\D/g, ''))}
+          hint="Tell them this PIN yourself. It is not shown again."
+        />
+        <fieldset>
+          <legend className="mb-1 text-sm font-semibold text-text">Role</legend>
+          <div className="grid grid-cols-2 gap-2">
+            <Choice chosen={role === 'cashier'} onClick={() => setRole('cashier')}>
+              <span className="block">Cashier</span>
+              <span className={`block text-sm font-normal ${role === 'cashier' ? 'text-surface/85' : 'text-text-muted'}`}>Records sales and expenses</span>
+            </Choice>
+            <Choice chosen={role === 'owner'} onClick={() => setRole('owner')}>
+              <span className="block">Owner</span>
+              <span className={`block text-sm font-normal ${role === 'owner' ? 'text-surface/85' : 'text-text-muted'}`}>Sees and changes everything</span>
+            </Choice>
+          </div>
+        </fieldset>
       </div>
-    </form>
+    </Modal>
   )
 }
 
 function UserRow({ account, user, online }: { account: Account; user: User; online: boolean }) {
   const isSelf = user.id === account.user_id
+  const toast = useToast()
 
-  const [changingPin, setChangingPin] = useState(false)
+  const [dialog, setDialog] = useState<'pin' | 'turn-off' | null>(null)
   const [pin, setPin] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  async function change(body: Record<string, unknown>) {
+  function close() {
+    setDialog(null)
+    setPin('')
+    setError(null)
+  }
+
+  async function change(body: Record<string, unknown>, done: string) {
     setBusy(true)
     setError(null)
     try {
       const reply = await api<{ data: ServerUser }>(`/users/${user.id}`, { method: 'PUT', token: account.token, body })
       await keepLocally(reply.data)
-      setChangingPin(false)
-      setPin('')
+      close()
+      toast(done)
     } catch (caught) {
       setError(serverMessage(caught, ['pin', 'active', 'role']))
     } finally {
@@ -326,42 +387,76 @@ function UserRow({ account, user, online }: { account: Account; user: User; onli
             <Tag tone="danger">Turned off</Tag>
           </span>
         )}
-
-        {changingPin && (
-          <div className="mt-3 flex flex-wrap items-end gap-2">
-            <div className="w-32">
-              <Field
-                id={`pin-${user.id}`}
-                label="New PIN"
-                inputMode="numeric"
-                autoComplete="off"
-                maxLength={4}
-                autoFocus
-                className="money"
-                value={pin}
-                onChange={(event) => setPin(event.target.value.replace(/\D/g, ''))}
-              />
-            </div>
-            <Button busy={busy} disabled={pin.length !== 4} onClick={() => void change({ pin })}>Save PIN</Button>
-            <Button variant="secondary" onClick={() => setChangingPin(false)}>Cancel</Button>
-          </div>
-        )}
-        {changingPin && !isSelf && <p className="mt-2 text-sm text-text-muted">They will be signed out of every device and must sign in with the new PIN.</p>}
-        {error && <p className="mt-2 text-sm text-danger">{error}</p>}
+        {dialog === null && error && <p className="mt-2 text-sm text-danger">{error}</p>}
       </td>
       <td className="px-4 py-2 text-right">
-        {!changingPin && (
-          <span className="inline-flex flex-wrap justify-end gap-1">
-            <Button variant="quiet" icon={<KeyRound {...ICON} />} disabled={!online} aria-label={`Change PIN for ${user.name}`} onClick={() => setChangingPin(true)}>
-              <span className="hidden sm:inline">PIN</span>
-            </Button>
-            {!isSelf && (
-              <Button variant="quiet" busy={busy} disabled={!online} onClick={() => void change({ active: !user.active })}>
-                {user.active ? 'Turn off' : 'Turn on'}
+        <span className="inline-flex flex-wrap justify-end gap-1">
+          <Button variant="quiet" icon={<KeyRound {...ICON} />} disabled={!online} aria-label={`Change PIN for ${user.name}`} onClick={() => setDialog('pin')}>
+            <span className="hidden sm:inline">PIN</span>
+          </Button>
+          {!isSelf &&
+            (user.active ? (
+              <Button variant="quiet" disabled={!online} onClick={() => setDialog('turn-off')}>
+                Turn off
               </Button>
-            )}
-          </span>
-        )}
+            ) : (
+              <Button variant="quiet" busy={busy} disabled={!online} onClick={() => void change({ active: true }, `${user.name} can sign in again.`)}>
+                Turn on
+              </Button>
+            ))}
+        </span>
+
+        <Modal
+          open={dialog === 'pin'}
+          onClose={close}
+          title={isSelf ? 'Change your PIN' : `New PIN for ${user.name}`}
+          size="sm"
+          onSubmit={(event) => {
+            event.preventDefault()
+            void change({ pin }, isSelf ? 'Your PIN is changed.' : `${user.name}’s PIN is changed.`)
+          }}
+          footer={
+            <ModalActions note={errorNote(error)}>
+              <Button variant="secondary" onClick={close}>
+                Cancel
+              </Button>
+              <Button type="submit" busy={busy} disabled={pin.length !== 4} icon={<Check {...ICON} />}>
+                Save PIN
+              </Button>
+            </ModalActions>
+          }
+        >
+          <div className="space-y-3 text-left">
+            <Field
+              id={`pin-${user.id}`}
+              data-autofocus
+              label="New PIN (4 digits)"
+              inputMode="numeric"
+              autoComplete="off"
+              maxLength={4}
+              className="money max-w-40 text-2xl tracking-widest"
+              value={pin}
+              onChange={(event) => setPin(event.target.value.replace(/\D/g, ''))}
+            />
+            {!isSelf && <p className="text-sm text-text-muted">They will be signed out of every device and must sign in with the new PIN. Tell them the PIN yourself.</p>}
+          </div>
+        </Modal>
+
+        <ConfirmDialog
+          open={dialog === 'turn-off'}
+          onClose={close}
+          title={`Turn off ${user.name}?`}
+          tone="danger"
+          icon={<Power {...ICON} />}
+          confirmLabel={`Turn off ${user.name}`}
+          busy={busy}
+          error={error}
+          onConfirm={() => void change({ active: false }, `${user.name} is turned off.`)}
+        >
+          <p className="text-left">
+            {user.name} will be signed out of every device and cannot sign in until you turn them on again. Their past sales and expenses stay.
+          </p>
+        </ConfirmDialog>
       </td>
     </tr>
   )
@@ -373,13 +468,21 @@ function UserRow({ account, user, online }: { account: Account; user: User; onli
 
 function LoyaltyCard({ account }: { account: Account }) {
   const online = useOnline()
+  const toast = useToast()
   const branch = useLiveQuery(() => db.branches.get(account.branch_id), [account.branch_id])
 
+  const [changing, setChanging] = useState(false)
   const [text, setText] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const current = branch?.loyalty_every_visits ?? null
+
+  function close() {
+    setChanging(false)
+    setText('')
+    setError(null)
+  }
 
   async function save(every: number | null) {
     setBusy(true)
@@ -392,7 +495,8 @@ function LoyaltyCard({ account }: { account: Account }) {
       })
       await db.branches.update(account.branch_id, { loyalty_every_visits: reply.data.loyalty_every_visits })
       void syncService.syncNow()
-      setText('')
+      close()
+      toast(reply.data.loyalty_every_visits ? `Loyalty wash every ${reply.data.loyalty_every_visits} visits.` : 'Loyalty rule turned off.')
     } catch (caught) {
       setError(serverMessage(caught, ['loyalty_every_visits']))
     } finally {
@@ -409,18 +513,53 @@ function LoyaltyCard({ account }: { account: Account }) {
 
   return (
     <Card title="Loyalty wash">
-      <form onSubmit={submit} noValidate className="space-y-4 px-4 py-4">
+      <div className="space-y-4 px-4 py-4">
         <p className="text-text-muted">
           Reward regulars: when a saved customer reaches every so-many visits, the New sale screen reminds the cashier. You decide the reward; the app does not change the price.
         </p>
 
-        <p>
-          <span className="text-sm text-text-muted">Now</span>
-          <span className="block font-heading text-2xl font-bold text-text">{current ? `Every ${current} visits` : 'No loyalty rule'}</span>
-        </p>
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <p>
+            <span className="text-sm text-text-muted">Now</span>
+            <span className="block font-heading text-2xl font-bold text-text">{current ? `Every ${current} visits` : 'No loyalty rule'}</span>
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {current && (
+              <Button variant="quiet" busy={busy && !changing} disabled={!online} onClick={() => void save(null)}>
+                Turn off
+              </Button>
+            )}
+            <Button variant="secondary" icon={<Pencil {...ICON} />} disabled={!online} onClick={() => setChanging(true)}>
+              {current ? 'Change' : 'Set a rule'}
+            </Button>
+          </div>
+        </div>
 
+        {!online && <p className="text-sm text-text-muted">You are offline. Changing this needs internet.</p>}
+        {!changing && error && <p className="text-sm text-danger">{error}</p>}
+      </div>
+
+      <Modal
+        open={changing}
+        onClose={close}
+        title="Loyalty wash"
+        description={current ? `Now every ${current} visits` : 'No rule yet'}
+        size="sm"
+        onSubmit={submit}
+        footer={
+          <ModalActions>
+            <Button variant="secondary" onClick={close}>
+              Cancel
+            </Button>
+            <Button type="submit" busy={busy} disabled={!online || text === ''} icon={<Check {...ICON} />}>
+              Save rule
+            </Button>
+          </ModalActions>
+        }
+      >
         <Field
           id="loyalty-every"
+          data-autofocus
           label="Remind on every…"
           inputMode="numeric"
           autoComplete="off"
@@ -432,18 +571,9 @@ function LoyaltyCard({ account }: { account: Account }) {
             setError(null)
           }}
           error={error}
-          hint={online ? 'visits. With 10, the 10th, 20th and 30th washes are loyalty washes.' : 'You are offline. This setting needs internet.'}
+          hint="visits. With 10, the 10th, 20th and 30th washes are loyalty washes."
         />
-
-        <div className="flex flex-wrap gap-2">
-          <Button type="submit" variant="secondary" busy={busy} disabled={!online || text === ''}>Save rule</Button>
-          {current && (
-            <Button variant="quiet" disabled={!online || busy} onClick={() => void save(null)}>
-              Turn off
-            </Button>
-          )}
-        </div>
-      </form>
+      </Modal>
     </Card>
   )
 }

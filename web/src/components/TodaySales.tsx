@@ -31,7 +31,7 @@ export default function TodaySales() {
   return (
     <Card title="Today’s sales">
       {/* Four across only when this card itself is wide, not just the screen. */}
-      <div className="@container relative overflow-hidden bg-accent px-4 py-4 text-surface">
+      <div className="@container relative mx-4 mt-1 mb-3 overflow-hidden rounded-panel bg-accent px-5 py-4 text-surface">
         <CornerArt kind="rings" corner="top-right" size={220} tone="text-surface/15" />
         <dl className="relative grid grid-cols-2 gap-x-4 gap-y-3 @xl:grid-cols-4">
           <div>
@@ -56,7 +56,7 @@ export default function TodaySales() {
       {sales.length === 0 ? (
         <p className="px-4 py-4 text-text-muted">No sales recorded today yet.</p>
       ) : (
-        <ul>
+        <ul className="border-t border-border">
           {sales.map((sale) => (
             <SaleRow key={sale.id} sale={sale} lookups={lookups} account={account} />
           ))}

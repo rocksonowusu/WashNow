@@ -38,7 +38,7 @@ export default function SyncBadge() {
     <span
       role="status"
       data-testid="sync-badge"
-      className={`inline-flex min-h-9 items-center gap-1.5 rounded-control px-2.5 text-sm font-semibold ${tone}`}
+      className={`inline-flex min-h-9 items-center gap-1.5 rounded-pill px-3 text-sm font-semibold ${tone}`}
     >
       {icon}
       {label}

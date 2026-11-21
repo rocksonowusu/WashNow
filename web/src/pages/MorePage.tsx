@@ -22,7 +22,7 @@ export default function MorePage() {
             .map(({ to, label, about, icon: Icon }) => (
             <li key={to} className="border-b border-border last:border-b-0">
               <Link to={to} className={`flex min-h-16 items-center gap-3 px-4 py-3 hover:bg-surface-alt ${focusRing}`}>
-                <span className="flex size-11 shrink-0 items-center justify-center rounded-control bg-accent-tint text-accent">
+                <span className="flex size-11 shrink-0 items-center justify-center rounded-pill bg-accent-tint text-accent">
                   <Icon size={22} strokeWidth={2} aria-hidden="true" />
                 </span>
                 <span className="min-w-0 flex-1">

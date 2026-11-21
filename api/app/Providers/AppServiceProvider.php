@@ -13,6 +13,9 @@ use App\Models\VehicleCategory;
 use App\Models\Washer;
 use App\Observers\AuditObserver;
 use App\Sync\IdAliases;
+use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -42,5 +45,12 @@ class AppServiceProvider extends ServiceProvider
         foreach (self::AUDITED as $model) {
             $model::observe(AuditObserver::class);
         }
+
+        // Every API request: generous enough for a busy day of syncing from
+        // one phone, low enough to stop a runaway script. Signed-in users are
+        // counted on their own; everyone else by address. Login has its own,
+        // much stricter limit in AuthController.
+        RateLimiter::for('api', fn (Request $request) => Limit::perMinute(120)
+            ->by($request->user()?->id ? 'user:'.$request->user()->id : 'ip:'.$request->ip()));
     }
 }

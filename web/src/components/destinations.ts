@@ -31,7 +31,6 @@ export type Destination = {
 /** Every screen, in the order the side navigation lists them. */
 export const DESTINATIONS: Destination[] = [
   { to: '/', label: 'Dashboard', tabLabel: 'Home', icon: LayoutDashboard, phoneTab: true },
-  { to: '/new-sale', label: 'New sale', icon: CirclePlus, phoneTab: true },
   { to: '/today', label: 'Today', icon: ClipboardList, phoneTab: true },
   { to: '/expenses', label: 'Expenses', icon: ReceiptText, phoneTab: true },
   { to: '/customers', label: 'Customers', icon: ContactRound, about: 'Find a regular by plate, name or phone, or add one.' },
@@ -51,3 +50,9 @@ export const PHONE_TABS = DESTINATIONS.filter((destination) => destination.phone
 
 /** Phones only: the screen listing everything that has no tab of its own. */
 export const MORE: Destination = { to: '/more', label: 'More', icon: Ellipsis }
+
+/**
+ * Not a screen: it opens the New sale modal over whatever is showing. It has
+ * the second phone tab and a button in the laptop header.
+ */
+export const NEW_SALE = { label: 'New sale', icon: CirclePlus }

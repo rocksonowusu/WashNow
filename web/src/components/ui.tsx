@@ -2,7 +2,7 @@ import { LoaderCircle, type LucideIcon } from 'lucide-react'
 import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode } from 'react'
 import CornerArt from './CornerArt.tsx'
 import { ICON } from './icon.ts'
-import { focusRing, inputClass } from './styles.ts'
+import { focusRing, hitArea, inputClass } from './styles.ts'
 
 const variants = {
   primary: 'bg-accent text-surface hover:bg-accent-pressed active:bg-accent-pressed',
@@ -24,7 +24,7 @@ export function Button({ variant = 'primary', busy = false, icon, className = ''
       type="button"
       {...rest}
       disabled={disabled || busy}
-      className={`inline-flex min-h-12 items-center justify-center gap-2 rounded-control px-4 font-semibold ${focusRing} disabled:cursor-not-allowed disabled:border-transparent disabled:bg-surface-alt disabled:text-text-muted ${variants[variant]} ${className}`}
+      className={`inline-flex min-h-10 items-center justify-center gap-2 rounded-pill px-4 text-[0.9375rem] font-semibold ${hitArea} ${focusRing} disabled:cursor-not-allowed disabled:border-transparent disabled:bg-surface-alt disabled:text-text-muted ${variants[variant]} ${className}`}
     >
       {busy ? <LoaderCircle {...ICON} className="animate-spin" /> : icon}
       {children}
@@ -93,8 +93,9 @@ export function Field({ label, error, hint, id, className = '', ...rest }: Field
 }
 
 /**
- * A panel. Give it a title and it gets a tinted heading bar, which is what
- * separates one block of the screen from the next.
+ * A white panel with rounded corners. The title sits on the panel itself;
+ * the solid colour comes from what is inside (blue totals bands, filled
+ * choices, table heading rows).
  */
 export function Card({
   title,
@@ -110,8 +111,8 @@ export function Card({
   return (
     <section className={`overflow-clip rounded-card border border-border bg-surface ${className}`}>
       {title && (
-        <div className="flex min-h-12 items-center justify-between gap-3 border-b border-border bg-surface-alt px-4 py-2">
-          <h2 className="text-base text-text">{title}</h2>
+        <div className="flex min-h-14 items-center justify-between gap-3 px-4 pt-3 pb-1">
+          <h2 className="min-w-0 text-lg leading-snug text-text">{title}</h2>
           {action}
         </div>
       )}
@@ -157,7 +158,7 @@ export function StatTile({
     >
       {strong && <CornerArt kind="rings" corner="top-right" size={170} tone="text-surface/15" />}
       <span
-        className={`relative flex size-11 shrink-0 items-center justify-center rounded-control ${
+        className={`relative flex size-11 shrink-0 items-center justify-center rounded-pill ${
           strong ? 'bg-surface text-accent' : tileColours[colour]
         }`}
       >
@@ -180,9 +181,9 @@ const tones = {
   muted: 'bg-surface-alt text-text-muted',
 } as const
 
-export function Tag({ tone, children }: { tone: keyof typeof tones; children: ReactNode }) {
+export function Tag({ tone, className = '', children }: { tone: keyof typeof tones; className?: string; children: ReactNode }) {
   return (
-    <span className={`inline-flex items-center gap-1 rounded-control px-2 py-0.5 text-sm font-semibold ${tones[tone]}`}>
+    <span className={`inline-flex items-center gap-1 rounded-pill px-2.5 py-0.5 text-sm font-semibold ${tones[tone]} ${className}`}>
       {children}
     </span>
   )

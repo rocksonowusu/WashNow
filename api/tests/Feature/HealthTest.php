@@ -23,3 +23,17 @@ it('does not allow other origins through CORS', function () {
         ->not->toBe('https://example.com')
         ->not->toBe('*');
 });
+
+it('answers a visit to the bare API address with JSON, not a web page', function () {
+    $this->get('/')
+        ->assertOk()
+        ->assertJsonPath('name', 'WashNow API');
+});
+
+it('limits how many requests one address can make in a minute', function () {
+    foreach (range(1, 120) as $ignored) {
+        $this->getJson('/api/health')->assertOk();
+    }
+
+    $this->getJson('/api/health')->assertStatus(429);
+});

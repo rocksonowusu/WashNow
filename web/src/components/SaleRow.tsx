@@ -7,7 +7,9 @@ import type { Account, Sale } from '../db/types.ts'
 import { formatMoney, formatTime } from '../lib/format.ts'
 import type { Lookups } from '../lib/useLookups.ts'
 import { ICON } from './icon.ts'
+import Modal, { ModalActions } from './Modal.tsx'
 import { focusRing } from './styles.ts'
+import { useToast } from './Toast.tsx'
 import { Button, Field, Tag } from './ui.tsx'
 
 function Detail({ label, children }: { label: string; children: ReactNode }) {
@@ -25,6 +27,7 @@ function Detail({ label, children }: { label: string; children: ReactNode }) {
  */
 export default function SaleRow({ sale, lookups, account, startOpen = false }: { sale: Sale; lookups: Lookups; account: Account; startOpen?: boolean }) {
   const isOwner = account.role === 'owner'
+  const toast = useToast()
 
   const [open, setOpen] = useState(startOpen)
   const [asking, setAsking] = useState(false)
@@ -40,13 +43,14 @@ export default function SaleRow({ sale, lookups, account, startOpen = false }: {
   const requested = Boolean(sale.void_requested_at) && !voided
   const crewIds = shares && shares.length > 0 ? shares.map((share) => share.washer_id) : (sale.washer_ids ?? [])
 
-  async function run(action: () => Promise<unknown>) {
+  async function run(action: () => Promise<unknown>, done?: string) {
     setBusy(true)
     setError(null)
     try {
       await action()
       setAsking(false)
       setReason('')
+      if (done) toast(done)
     } catch (caught) {
       setError(caught instanceof LocalValidationError ? caught.message : 'That did not work. Try again.')
     } finally {
@@ -110,7 +114,7 @@ export default function SaleRow({ sale, lookups, account, startOpen = false }: {
             )}
           </dl>
 
-          {!voided && !refused && !asking && (
+          {!voided && !refused && (
             <div className="flex flex-wrap gap-2">
               {isOwner ? (
                 <>
@@ -125,7 +129,7 @@ export default function SaleRow({ sale, lookups, account, startOpen = false }: {
                     {requested ? 'Approve and void' : 'Void this sale'}
                   </Button>
                   {requested && (
-                    <Button variant="secondary" busy={busy} icon={<X {...ICON} />} onClick={() => void run(() => declineVoidRequest(account, sale.id))}>
+                    <Button variant="secondary" busy={busy} icon={<X {...ICON} />} onClick={() => void run(() => declineVoidRequest(account, sale.id), 'Request declined. The sale stays.')}>
                       Decline
                     </Button>
                   )}
@@ -140,29 +144,24 @@ export default function SaleRow({ sale, lookups, account, startOpen = false }: {
             </div>
           )}
 
-          {asking && (
-            <div className="space-y-3">
-              <Field
-                id={`reason-${sale.id}`}
-                label={isOwner ? 'Why is this sale being voided?' : 'Why should this sale be voided?'}
-                autoComplete="off"
-                autoFocus
-                placeholder="Entered twice, wrong amount…"
-                value={reason}
-                onChange={(event) => {
-                  setReason(event.target.value)
-                  setError(null)
-                }}
-                error={error}
-              />
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  variant={isOwner ? 'danger' : 'primary'}
-                  busy={busy}
-                  onClick={() => void run(() => (isOwner ? voidSale(account, sale.id, reason) : requestVoid(account, sale.id, reason)))}
-                >
-                  {isOwner ? `Void ${formatMoney(sale.amount)} sale` : 'Send request'}
-                </Button>
+          <Modal
+            open={asking}
+            onClose={() => {
+              setAsking(false)
+              setError(null)
+            }}
+            title={isOwner ? (requested ? 'Approve and void' : 'Void this sale') : 'Ask the owner to void'}
+            description={`${lookups.categoryNames.get(sale.category_id) ?? 'Vehicle'} · ${formatMoney(sale.amount)} · ${formatTime(sale.sold_at)}`}
+            size="sm"
+            onSubmit={(event) => {
+              event.preventDefault()
+              void run(
+                () => (isOwner ? voidSale(account, sale.id, reason) : requestVoid(account, sale.id, reason)),
+                isOwner ? `The ${formatMoney(sale.amount)} sale is voided.` : 'Request sent to the owner.',
+              )
+            }}
+            footer={
+              <ModalActions>
                 <Button
                   variant="secondary"
                   onClick={() => {
@@ -172,9 +171,33 @@ export default function SaleRow({ sale, lookups, account, startOpen = false }: {
                 >
                   Cancel
                 </Button>
-              </div>
+                <Button type="submit" variant={isOwner ? 'danger' : 'primary'} busy={busy} icon={isOwner ? <Ban {...ICON} /> : <Hand {...ICON} />}>
+                  {isOwner ? `Void ${formatMoney(sale.amount)} sale` : 'Send request'}
+                </Button>
+              </ModalActions>
+            }
+          >
+            <div className="space-y-3">
+              <p className="text-text-muted">
+                {isOwner
+                  ? 'A voided sale stays in the records, crossed out, and no longer counts in any total.'
+                  : 'The owner sees your request and decides. The sale counts until they void it.'}
+              </p>
+              <Field
+                id={`reason-${sale.id}`}
+                data-autofocus
+                label={isOwner ? 'Why is this sale being voided?' : 'Why should this sale be voided?'}
+                autoComplete="off"
+                placeholder="Entered twice, wrong amount…"
+                value={reason}
+                onChange={(event) => {
+                  setReason(event.target.value)
+                  setError(null)
+                }}
+                error={error}
+              />
             </div>
-          )}
+          </Modal>
 
           {!asking && error && <p className="text-sm text-danger">{error}</p>}
         </div>

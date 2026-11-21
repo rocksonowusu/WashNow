@@ -91,7 +91,7 @@ export default function CrewPicker({ account, selectedIds, onChange, error }: Pr
       />
 
       {shown.length > 0 && (
-        <div className="mt-2 grid grid-cols-2 gap-2 lg:grid-cols-3">
+        <div className="mt-2 grid grid-cols-2 gap-2">
           {shown.map((member) => {
             const picked = selectedIds.includes(member.id)
             return (

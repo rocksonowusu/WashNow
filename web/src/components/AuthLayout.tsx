@@ -13,7 +13,7 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
         <CornerArt kind="lines" corner="top-right" size={380} tone="text-surface/10" />
 
         <img src="/brand/washnow-logo-white.svg" alt="WashNow" className="relative h-20 w-auto sm:h-24 lg:h-36" />
-        <span aria-hidden="true" className="relative mt-5 block h-1.5 w-20 rounded-control bg-sun lg:mt-7 lg:w-28" />
+        <span aria-hidden="true" className="relative mt-5 block h-1.5 w-20 rounded-pill bg-sun lg:mt-7 lg:w-28" />
         <p className="relative mt-5 max-w-sm text-lg text-surface/85 lg:mt-7 lg:text-xl">
           The washing bay’s sales book. Keeps working when the internet does not.
         </p>

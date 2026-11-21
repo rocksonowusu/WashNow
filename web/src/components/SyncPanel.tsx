@@ -5,6 +5,7 @@ import { formatDateTime } from '../lib/format.ts'
 import { syncService } from '../sync/SyncService.ts'
 import { useSync } from '../sync/useSync.ts'
 import { ICON } from './icon.ts'
+import { ConfirmDialog } from './Modal.tsx'
 import { Button, Card } from './ui.tsx'
 
 /**
@@ -15,6 +16,8 @@ export default function SyncPanel() {
   const { account, signOut } = useAuth()
   const sync = useSync()
 
+  const [confirmingSignOut, setConfirmingSignOut] = useState(false)
+  const [signingOut, setSigningOut] = useState(false)
   const [signOutError, setSignOutError] = useState<string | null>(null)
 
   let status = 'Everything on this device has been sent to the server.'
@@ -70,14 +73,40 @@ export default function SyncPanel() {
             icon={<LogOut {...ICON} />}
             onClick={() => {
               setSignOutError(null)
-              signOut().catch((caught: unknown) => {
-                setSignOutError(caught instanceof Error ? caught.message : 'Could not sign out.')
-              })
+              setConfirmingSignOut(true)
             }}
           >
             Sign out of this device
           </Button>
-          {signOutError && <p className="mt-1 text-sm text-danger">{signOutError}</p>}
+
+          <ConfirmDialog
+            open={confirmingSignOut}
+            onClose={() => setConfirmingSignOut(false)}
+            title="Sign out of this device?"
+            tone="danger"
+            icon={<LogOut {...ICON} />}
+            confirmLabel="Sign out"
+            busy={signingOut}
+            error={signOutError}
+            onConfirm={() => {
+              setSignOutError(null)
+              setSigningOut(true)
+              signOut()
+                .catch((caught: unknown) => {
+                  setSignOutError(caught instanceof Error ? caught.message : 'Could not sign out.')
+                })
+                .finally(() => setSigningOut(false))
+            }}
+          >
+            <p>
+              Next time, {account.name} signs in with their phone number and PIN, which needs internet. To step away for a while, use Lock instead.
+            </p>
+            {sync.waiting > 0 && (
+              <p className="rounded-control bg-warning px-3 py-2 font-semibold text-text">
+                {sync.waiting} record(s) on this device have not reached the server yet. Sync first.
+              </p>
+            )}
+          </ConfirmDialog>
         </div>
       )}
     </Card>

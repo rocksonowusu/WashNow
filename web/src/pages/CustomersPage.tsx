@@ -1,9 +1,11 @@
 import { useLiveQuery } from 'dexie-react-hooks'
-import { CircleCheck, UserRoundPlus } from 'lucide-react'
-import { useState, type FormEvent } from 'react'
+import { UserRoundPlus } from 'lucide-react'
+import { useState, type FormEvent, type ReactNode } from 'react'
 import { useAuth } from '../auth/AuthContext.tsx'
 import { ICON } from '../components/icon.ts'
+import Modal, { ModalActions } from '../components/Modal.tsx'
 import { inputClass, tableHead } from '../components/styles.ts'
+import { useToast } from '../components/Toast.tsx'
 import { Button, Card, Field, Tag } from '../components/ui.tsx'
 import { db } from '../db/db.ts'
 import { createCustomer, LocalValidationError } from '../db/repositories.ts'
@@ -18,15 +20,33 @@ const SHOWN = 50
  * are counted by the server from sales, so they update after a sync.
  */
 export default function CustomersPage() {
+  const toast = useToast()
+  const [adding, setAdding] = useState(false)
+
   return (
-    <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
-      <AddCustomerCard />
-      <CustomerList />
+    <div className="space-y-5">
+      <CustomerList
+        action={
+          <Button icon={<UserRoundPlus {...ICON} />} className="shrink-0" aria-label="Add a customer" onClick={() => setAdding(true)}>
+            <span className="sm:hidden">Add</span>
+            <span className="hidden sm:inline">Add a customer</span>
+          </Button>
+        }
+      />
+
+      <AddCustomerDialog
+        open={adding}
+        onClose={() => setAdding(false)}
+        onSaved={(message) => {
+          setAdding(false)
+          toast(message)
+        }}
+      />
     </div>
   )
 }
 
-function AddCustomerCard() {
+function AddCustomerDialog({ open, onClose, onSaved }: { open: boolean; onClose: () => void; onSaved: (message: string) => void }) {
   const { account } = useAuth()
 
   const [plate, setPlate] = useState('')
@@ -34,9 +54,13 @@ function AddCustomerCard() {
   const [phone, setPhone] = useState('')
   const [busy, setBusy] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
-  const [saved, setSaved] = useState<string | null>(null)
 
   if (!account) return null
+
+  function close() {
+    setErrors({})
+    onClose()
+  }
 
   async function submit(event: FormEvent) {
     event.preventDefault()
@@ -45,11 +69,11 @@ function AddCustomerCard() {
     setBusy(true)
     try {
       const customer = await createCustomer(account, { plateNumber: plate, name, phone })
-      setSaved(`${customer.name ?? customer.plate_number} is saved.`)
       setPlate('')
       setName('')
       setPhone('')
       setErrors({})
+      onSaved(`${customer.name ?? customer.plate_number} is saved.`)
     } catch (caught) {
       if (caught instanceof LocalValidationError) setErrors({ [caught.field]: caught.message })
       else setErrors({ plateNumber: 'The customer could not be saved on this device. Try again.' })
@@ -59,22 +83,31 @@ function AddCustomerCard() {
   }
 
   function edited() {
-    setSaved(null)
     setErrors({})
   }
 
   return (
-    <Card title="Add a customer">
-      <form onSubmit={submit} noValidate className="space-y-4 px-4 py-4">
-        {saved && (
-          <p role="status" className="flex items-center gap-2 rounded-control bg-success px-3 py-3 font-semibold text-surface">
-            <CircleCheck {...ICON} className="shrink-0" />
-            {saved}
-          </p>
-        )}
-
+    <Modal
+      open={open}
+      onClose={close}
+      title="Add a customer"
+      size="sm"
+      onSubmit={submit}
+      footer={
+        <ModalActions>
+          <Button variant="secondary" onClick={close}>
+            Cancel
+          </Button>
+          <Button type="submit" busy={busy} disabled={plate.trim() === ''} icon={<UserRoundPlus {...ICON} />}>
+            Save customer
+          </Button>
+        </ModalActions>
+      }
+    >
+      <div className="space-y-4">
         <Field
           id="customer-plate"
+          data-autofocus
           label="Plate number"
           autoComplete="off"
           autoCapitalize="characters"
@@ -110,16 +143,12 @@ function AddCustomerCard() {
             setPhone(event.target.value)
           }}
         />
-
-        <Button type="submit" busy={busy} disabled={plate.trim() === ''} icon={<UserRoundPlus {...ICON} />} className="w-full">
-          Save customer
-        </Button>
-      </form>
-    </Card>
+      </div>
+    </Modal>
   )
 }
 
-function CustomerList() {
+function CustomerList({ action }: { action: ReactNode }) {
   const lookups = useLookups()
   const [search, setSearch] = useState('')
 
@@ -144,7 +173,7 @@ function CustomerList() {
   const shown = matching.slice(0, SHOWN)
 
   return (
-    <Card title={customers.length === 1 ? '1 customer' : `${customers.length} customers`}>
+    <Card title={customers.length === 1 ? '1 customer' : `${customers.length} customers`} action={action}>
       <div className="border-b border-border px-4 py-3">
         <label htmlFor="customer-search" className="sr-only">
           Find a customer by plate, name or phone
