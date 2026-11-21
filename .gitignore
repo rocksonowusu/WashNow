@@ -6,6 +6,8 @@ node_modules/
 .env
 .env.*
 !.env.example
+# The live app's API address (not a secret)
+!web/.env.production
 
 # Build output
 dist/
